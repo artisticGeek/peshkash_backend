@@ -24,5 +24,27 @@ export const QrMappingController = {
       console.error('Error fetching event menu mapping:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
+  },
+
+ getDishDetails: async (req: Request, res: Response) => {
+    const { eventName, menuName, itemName } = req.params;
+
+    try {
+      const { mapping, isEventActive } = await EventMenuMappingService.getMenuForEvent(eventName, menuName);
+
+      if (!mapping) {
+        return res.status(404).json({ message: 'No menu found for the given event' });
+      }
+
+      const responseDto = isEventActive
+        ? MapperUtil.mapActiveEventResponse(mapping, itemName)
+        : MapperUtil.mapFallbackEventResponse(mapping);
+
+      return res.json(responseDto);
+
+    } catch (error) {
+      console.error('Error fetching specific dish:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 };
