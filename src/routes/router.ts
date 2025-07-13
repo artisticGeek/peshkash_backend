@@ -8,4 +8,6 @@ const router = Router();
 
 router.get('/event/:eventName/menu/:menuName', QrMappingController.getMenuByEventAndMenuName);
 
+router.get('/event/:eventName/menu/:menuName/item/:itemName', QrMappingController.getDishDetails);
+
 export default router;
