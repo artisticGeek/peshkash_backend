@@ -11,6 +11,9 @@ dotenv.config();
 
 export const sequelize = new Sequelize({
   dialect: 'postgres',
+  dialectOptions: {
+    family: 4
+  },
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
   username: process.env.DB_USER,
