@@ -9,16 +9,11 @@ import { QrLinkMapping } from '../models/qrLinkMapping.model';
 
 dotenv.config();
 
-export const sequelize = new Sequelize({
+export const sequelize = new Sequelize(process.env.DATABASE_URL as string, {
   dialect: 'postgres',
   dialectOptions: {
-    family: 4
+    family: 4, // Ensure IPv4 preference
   },
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  username: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
   models: [
     Vendor,
     Menu,
