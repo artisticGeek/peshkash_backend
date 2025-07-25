@@ -76,6 +76,8 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
     event: mapping.event,
     displayName: targetItem.displayName,
     menu: getMenuSummary(mapping.menu),
+    ingredients: targetItem.ingredients,
+    image: targetItem.image,
     parentItems: parentItems.map(p => ({
       id: p.id,
       name: p.name,

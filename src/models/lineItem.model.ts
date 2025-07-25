@@ -32,6 +32,12 @@ export class LineItem extends Model<LineItem> {
   @Column(DataType.TEXT)
   description?: string;
 
+    @Column(DataType.TEXT)
+  ingredients?: string;
+
+    @Column(DataType.TEXT)
+  image?: string;
+
   @Column(DataType.TEXT)
   type?: string;
 
