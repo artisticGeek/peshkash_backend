@@ -8,3 +8,4 @@ export const isEventActive = (event: Event): boolean => {
   const now = new Date();
   return now >= new Date(event.startTime) && now <= new Date(event.endTime);
 };
+    

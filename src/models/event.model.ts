@@ -17,7 +17,7 @@ export class Event extends Model<Event> {
   @Column({ field: 'event_description', type: DataType.TEXT })
   eventDescription!: string;
 
-    @Column({ field: 'display_name', type: DataType.TEXT })
+  @Column({ field: 'display_name', type: DataType.TEXT })
   displayName!: string;
 
   @Column({ field: 'start_time', type: DataType.DATE })
