@@ -74,6 +74,7 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
     createdAt: targetItem.createdAt,
     itemType: targetItem.type,
     event: mapping.event,
+    displayName: targetItem.displayName,
     menu: getMenuSummary(mapping.menu),
     parentItems: parentItems.map(p => ({
       id: p.id,
@@ -82,6 +83,7 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
       isActive: p.isActive,
       createdAt: p.createdAt,
       itemType: p.type,
+      displayName: p.displayName
     })),
   };
 }
