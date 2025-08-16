@@ -10,4 +10,6 @@ router.get('/event/:eventName/menu/:menuName', QrMappingController.getMenuByEven
 
 router.get('/event/:eventName/menu/:menuName/item/:itemName', QrMappingController.getDishDetails);
 
+router.get('/:qrhash', QrMappingController.redirectByQrHash);
+
 export default router;
