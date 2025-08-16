@@ -9,7 +9,7 @@ export const QrLinkMappingService = {
         if (!qrLinkMapping || !qrLinkMapping.url) {
             return null; // no mapping found
         }
-
+        
         return { redirectionUrl: qrLinkMapping.url };
     }
 };

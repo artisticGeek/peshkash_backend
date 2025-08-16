@@ -49,20 +49,23 @@ export const QrMappingController = {
     }
   },
 
-  // ✅ New function: redirect by QR hash
   redirectByQrHash: async (req: Request, res: Response) => {
-    const { qrHash } = req.params;
-
     try {
-      const redirection = await QrLinkMappingService.getHashRedirectionUrl(qrHash);
-
-      if (!redirection) {
-        return res.status(404).json({ message: 'QR hash not found' });
+      const { qrHash } = req.params;   // <- must match :qrHash in router
+      
+      if (!qrHash) {
+        return res.status(400).json({ error: 'QR hash is required' });
       }
 
-      // Perform HTTP redirect
-      return res.redirect(redirection.redirectionUrl);
+      const redirectionUrl = await QrLinkMappingService.getHashRedirectionUrl( qrHash);
 
+      if (!redirectionUrl) {
+        return res.status(404).json({ error: 'QR code not found' });
+      }
+
+        console.log(redirectionUrl.redirectionUrl);
+
+      return res.redirect(302, redirectionUrl.redirectionUrl);
     } catch (error) {
       console.error('Error handling QR redirection:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
