@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { EventMenuMappingService } from '../services/EventMenuMappingService';
 import { MapperUtil } from '../utils/MapperUtil';
+import { QrLinkMappingService } from '../services/QrLinkMappingService';
 
 export const QrMappingController = {
   getMenuByEventAndMenuName: async (req: Request, res: Response) => {
@@ -26,7 +27,7 @@ export const QrMappingController = {
     }
   },
 
- getDishDetails: async (req: Request, res: Response) => {
+  getDishDetails: async (req: Request, res: Response) => {
     const { eventName, menuName, itemName } = req.params;
 
     try {
@@ -44,6 +45,26 @@ export const QrMappingController = {
 
     } catch (error) {
       console.error('Error fetching specific dish:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  },
+
+  // ✅ New function: redirect by QR hash
+  redirectByQrHash: async (req: Request, res: Response) => {
+    const { qrHash } = req.params;
+
+    try {
+      const redirection = await QrLinkMappingService.getHashRedirectionUrl(qrHash);
+
+      if (!redirection) {
+        return res.status(404).json({ message: 'QR hash not found' });
+      }
+
+      // Perform HTTP redirect
+      return res.redirect(redirection.redirectionUrl);
+
+    } catch (error) {
+      console.error('Error handling QR redirection:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
