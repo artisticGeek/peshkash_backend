@@ -65,7 +65,7 @@ export const QrMappingController = {
 
         console.log(redirectionUrl.redirectionUrl);
 
-      return res.redirect(302, redirectionUrl.redirectionUrl);
+      return res.send(redirectionUrl);
     } catch (error) {
       console.error('Error handling QR redirection:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
