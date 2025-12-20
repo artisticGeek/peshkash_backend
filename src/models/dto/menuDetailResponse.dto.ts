@@ -5,5 +5,6 @@ export interface LineItemDTO {
   isActive: boolean;
   createdAt: Date;
   itemType: string;
+  enumType?: string;
   subCategoryLineItems?: LineItemDTO[];
 }

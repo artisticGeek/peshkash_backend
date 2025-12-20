@@ -32,14 +32,17 @@ export class LineItem extends Model<LineItem> {
   @Column(DataType.TEXT)
   description?: string;
 
-    @Column(DataType.TEXT)
+  @Column(DataType.TEXT)
   ingredients?: string;
 
-    @Column(DataType.TEXT)
+  @Column(DataType.TEXT)
   image?: string;
 
   @Column(DataType.TEXT)
   type?: string;
+
+  @Column({ field: 'enum_type', type: DataType.STRING })
+  enumType?: string;
 
   @Column({ field: 'is_active', type: DataType.BOOLEAN })
   isActive!: boolean;

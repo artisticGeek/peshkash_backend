@@ -35,6 +35,7 @@ function mapLineItemsRecursively(
         isActive: item.isActive,
         createdAt: item.createdAt,
         itemType: item.type,
+        enumType: item.enumType,
         subCategoryLineItems: subItems,
       };
     })
@@ -166,6 +167,6 @@ function getMenuSummary(menu: Menu) {
     description: menu.description,
     isActive: menu.isActive
   }
-  
+
 }
 
