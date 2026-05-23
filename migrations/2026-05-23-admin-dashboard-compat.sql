@@ -18,6 +18,15 @@ alter table public.event
   add column if not exists payment_id text,
   add column if not exists amount_paid numeric(10, 2);
 
+alter table public.event_menu_mapping
+  add column if not exists display_name text;
+
+update public.event_menu_mapping emm
+set display_name = m.display_name
+from public.menu m
+where emm.menu_id = m.id
+  and nullif(trim(coalesce(emm.display_name, '')), '') is null;
+
 alter table public.event
   drop constraint if exists event_status_check;
 

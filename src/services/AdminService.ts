@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { LineItem } from '../models/lineItem.model';
@@ -13,6 +13,7 @@ type UrlContext = {
 };
 
 let eventStatusColumn: boolean | null = null;
+let eventMenuDisplayNameColumn: boolean | null = null;
 
 async function hasEventStatusColumn() {
   if (eventStatusColumn !== null) return eventStatusColumn;
@@ -25,6 +26,31 @@ async function eventAttributes() {
   const attrs = ['id', 'name', 'eventDescription', 'displayName', 'startTime', 'endTime', 'createdAt', 'vendorId'];
   if (await hasEventStatusColumn()) attrs.push('status');
   return attrs;
+}
+
+async function hasEventMenuDisplayNameColumn() {
+  if (eventMenuDisplayNameColumn !== null) return eventMenuDisplayNameColumn;
+  const rows = await EventMenuMapping.sequelize!.query<{ column_name: string }>(
+    `select column_name
+       from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'event_menu_mapping'
+        and column_name = 'display_name'
+      limit 1`,
+    { type: QueryTypes.SELECT }
+  );
+  eventMenuDisplayNameColumn = rows.length > 0;
+  return eventMenuDisplayNameColumn;
+}
+
+async function eventMenuMappingAttributes() {
+  const attrs = ['id', 'eventId', 'menuId', 'createdAt'];
+  if (await hasEventMenuDisplayNameColumn()) attrs.push('displayName');
+  return attrs;
+}
+
+function mappingDisplayName(mapping: EventMenuMapping) {
+  return mapping.getDataValue('displayName') || mapping.menu.displayName;
 }
 
 function badRequest(message: string) {
@@ -140,6 +166,7 @@ function itemPath(eventName: string, menuName: string, itemName: string) {
 }
 
 function withUrls(mapping: QrLinkMapping, ctx: UrlContext) {
+  const destination = mapping.url?.startsWith('/') ? mapping.url : mapping.url ? `/${mapping.url}` : undefined;
   return {
     id: mapping.id,
     qrHash: mapping.qrHash,
@@ -150,7 +177,7 @@ function withUrls(mapping: QrLinkMapping, ctx: UrlContext) {
     createdAt: mapping.createdAt,
     updatedAt: mapping.updatedAt,
     shortQrUrl: mapping.qrHash ? `${ctx.origin}/${mapping.qrHash}` : undefined,
-    finalPublicUrl: mapping.url ? `${ctx.origin}${mapping.url}` : undefined,
+    finalPublicUrl: destination ? `${ctx.origin}${destination}` : undefined,
   };
 }
 
@@ -176,7 +203,7 @@ export const AdminService = {
     const name = requireSlug(body.name, 'Vendor slug');
     const displayName = requireText(body.displayName, 'Vendor display name');
     const existing = await Vendor.findOne({ where: { name } });
-    if (existing) throw conflict('A vendor with this slug already exists');
+    if (existing) throw conflict('A vendor with this slug already exists. Use a unique manual slug such as adding city, venue, or a short random suffix.');
 
     const vendor = await Vendor.create({
       name,
@@ -195,7 +222,7 @@ export const AdminService = {
     const name = body.name !== undefined ? requireSlug(body.name, 'Vendor slug') : vendor.name;
     if (name !== vendor.name) {
       const duplicate = await Vendor.findOne({ where: { name, id: { [Op.ne]: id } } });
-      if (duplicate) throw conflict('A vendor with this slug already exists');
+      if (duplicate) throw conflict('A vendor with this slug already exists. Use a unique manual slug such as adding city, venue, or a short random suffix.');
     }
     await vendor.update({
       name,
@@ -220,7 +247,7 @@ export const AdminService = {
     if (!vendor) throw badRequest('Selected vendor does not exist');
     const name = requireSlug(body.name, 'Event slug');
     const duplicate = await Event.findOne({ where: { vendorId, name }, attributes: ['id'] });
-    if (duplicate) throw conflict('This vendor already has an event with this slug');
+    if (duplicate) throw conflict('This vendor already has an event with this slug. Add the year, couple name, location, or a short suffix.');
 
     const createData: Record<string, unknown> = {
       vendorId,
@@ -243,7 +270,7 @@ export const AdminService = {
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Event slug') : event.name;
     const duplicate = await Event.findOne({ where: { vendorId, name, id: { [Op.ne]: id } }, attributes: ['id'] });
-    if (duplicate) throw conflict('This vendor already has an event with this slug');
+    if (duplicate) throw conflict('This vendor already has an event with this slug. Add the year, couple name, location, or a short suffix.');
 
     const updateData: Record<string, unknown> = {
       vendorId,
@@ -276,7 +303,7 @@ export const AdminService = {
     if (!vendor) throw badRequest('Selected vendor does not exist');
     const name = requireSlug(body.name, 'Menu slug');
     const duplicate = await Menu.findOne({ where: { vendorId, name } });
-    if (duplicate) throw conflict('This vendor already has a menu with this slug');
+    if (duplicate) throw conflict('This vendor already has a menu with this slug. Use a unique menu slug such as adding event type or version.');
     const menu = await Menu.create({
       vendorId,
       name,
@@ -295,7 +322,7 @@ export const AdminService = {
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Menu slug') : menu.name;
     const duplicate = await Menu.findOne({ where: { vendorId, name, id: { [Op.ne]: id } } });
-    if (duplicate) throw conflict('This vendor already has a menu with this slug');
+    if (duplicate) throw conflict('This vendor already has a menu with this slug. Use a unique menu slug such as adding event type or version.');
     await menu.update({
       vendorId,
       name,
@@ -307,11 +334,19 @@ export const AdminService = {
     return cleanMenu(updated!);
   },
 
-  linkMenuToEvent: async (eventId: number, menuId: number) => {
+  linkMenuToEvent: async (eventId: number, menuId: number, displayName?: string) => {
     const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
-    await ensureVendorOwnsMenu(event.vendorId, menuId);
-    await EventMenuMapping.findOrCreate({ where: { eventId, menuId }, defaults: { eventId, menuId } as any });
+    const menu = await ensureVendorOwnsMenu(event.vendorId, menuId);
+    const defaults: Record<string, unknown> = { eventId, menuId };
+    if (await hasEventMenuDisplayNameColumn()) defaults.displayName = displayName?.trim() || menu.displayName;
+    const [mapping] = await EventMenuMapping.findOrCreate({
+      where: { eventId, menuId },
+      defaults: defaults as any,
+    });
+    if (displayName?.trim() && await hasEventMenuDisplayNameColumn()) {
+      await mapping.update({ displayName: displayName.trim() } as any);
+    }
     return AdminService.listEventMenus(eventId);
   },
 
@@ -323,9 +358,13 @@ export const AdminService = {
   listEventMenus: async (eventId: number) => {
     const mappings = await EventMenuMapping.findAll({
       where: { eventId },
+      attributes: await eventMenuMappingAttributes(),
       include: [{ model: Menu, include: [Vendor] }],
     });
-    return mappings.map((mapping) => cleanMenu(mapping.menu));
+    return mappings.map((mapping) => ({
+      ...cleanMenu(mapping.menu),
+      eventMenuDisplayName: mappingDisplayName(mapping),
+    }));
   },
 
   listItems: async (menuId?: number) => {
@@ -341,7 +380,7 @@ export const AdminService = {
     if (!menu) throw badRequest('Selected menu does not exist');
     const name = requireSlug(body.name, 'Item slug');
     const duplicate = await LineItem.findOne({ where: { menuId, name } });
-    if (duplicate) throw conflict('This menu already has an item with this slug');
+    if (duplicate) throw conflict('This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.');
     if (body.parentId) {
       const parent = await LineItem.findOne({ where: { id: Number(body.parentId), menuId } });
       if (!parent) throw badRequest('Parent item must belong to the same menu');
@@ -367,7 +406,7 @@ export const AdminService = {
     const menuId = body.menuId !== undefined ? Number(body.menuId) : item.menuId;
     const name = body.name !== undefined ? requireSlug(body.name, 'Item slug') : item.name;
     const duplicate = await LineItem.findOne({ where: { menuId, name, id: { [Op.ne]: id } } });
-    if (duplicate) throw conflict('This menu already has an item with this slug');
+    if (duplicate) throw conflict('This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.');
     if (body.parentId) {
       const parent = await LineItem.findOne({ where: { id: Number(body.parentId), menuId } });
       if (!parent) throw badRequest('Parent item must belong to the same menu');
@@ -420,6 +459,7 @@ export const AdminService = {
       LineItem.findAll(),
     ]);
     const mappings = await EventMenuMapping.findAll({
+      attributes: await eventMenuMappingAttributes(),
       include: [{ model: Event, attributes: await eventAttributes() }, Menu],
     });
     return {
@@ -429,6 +469,7 @@ export const AdminService = {
         menuId: mapping.menuId,
         eventName: mapping.event.name,
         menuName: mapping.menu.name,
+        displayName: mappingDisplayName(mapping),
         publicPath: menuPath(mapping.event.name, mapping.menu.name),
         publicUrl: `${ctx.origin}${menuPath(mapping.event.name, mapping.menu.name)}`,
       })),
@@ -441,6 +482,7 @@ export const AdminService = {
             eventId: mapping.eventId,
             eventName: mapping.event.name,
             menuName: mapping.menu.name,
+            menuDisplayName: mappingDisplayName(mapping),
             itemName: item.name,
             publicPath: itemPath(mapping.event.name, mapping.menu.name, item.name),
             publicUrl: `${ctx.origin}${itemPath(mapping.event.name, mapping.menu.name, item.name)}`,

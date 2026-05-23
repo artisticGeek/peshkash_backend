@@ -15,15 +15,19 @@ const eventPublicAttributes = [
   'vendorId',
 ];
 
+const eventMenuMappingPublicAttributes = ['id', 'eventId', 'menuId', 'createdAt'];
+
 export const EventMenuMappingRepo = {
   findAll: async () => {
     return await EventMenuMapping.findAll({
+      attributes: eventMenuMappingPublicAttributes,
       include: [{ model: Event, attributes: eventPublicAttributes }, Menu],
     });
   },
 
   getById: async (id: number) => {
     return await EventMenuMapping.findByPk(id, {
+      attributes: eventMenuMappingPublicAttributes,
       include: [{ model: Event, attributes: eventPublicAttributes }, Menu],
     });
   },
@@ -32,6 +36,7 @@ getMenuByEventAndMenuName: async (eventName: string, menuName: string) => {
   console.log('Received for repo lookup:', { eventName, menuName });
 
   return await EventMenuMapping.findOne({
+    attributes: eventMenuMappingPublicAttributes,
     include: [
       {
         model: Event,

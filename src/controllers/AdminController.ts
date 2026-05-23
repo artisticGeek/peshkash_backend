@@ -33,7 +33,7 @@ export const AdminController = {
   listEventMenus: (req: Request, res: Response) =>
     handle(res, AdminService.listEventMenus(Number(req.params.eventId))),
   linkMenuToEvent: (req: Request, res: Response) =>
-    handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId)), 201),
+    handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId), req.body?.displayName), 201),
   unlinkMenuFromEvent: (req: Request, res: Response) =>
     handle(res, AdminService.unlinkMenuFromEvent(Number(req.params.eventId), Number(req.params.menuId))),
 
