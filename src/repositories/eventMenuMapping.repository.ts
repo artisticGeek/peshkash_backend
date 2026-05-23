@@ -1,20 +1,30 @@
-import { Op } from 'sequelize';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { Event } from '../models/event.model';
 import { Menu } from '../models/menu.model';
 import { LineItem } from '../models/lineItem.model';
 import { Vendor } from '../models/vendor.model';
 
+const eventPublicAttributes = [
+  'id',
+  'name',
+  'eventDescription',
+  'displayName',
+  'startTime',
+  'endTime',
+  'createdAt',
+  'vendorId',
+];
+
 export const EventMenuMappingRepo = {
   findAll: async () => {
     return await EventMenuMapping.findAll({
-      include: [Event, Menu],
+      include: [{ model: Event, attributes: eventPublicAttributes }, Menu],
     });
   },
 
   getById: async (id: number) => {
     return await EventMenuMapping.findByPk(id, {
-      include: [Event, Menu],
+      include: [{ model: Event, attributes: eventPublicAttributes }, Menu],
     });
   },
 
@@ -25,6 +35,7 @@ getMenuByEventAndMenuName: async (eventName: string, menuName: string) => {
     include: [
       {
         model: Event,
+        attributes: eventPublicAttributes,
         where: { name: eventName },
         include: [{ model: Vendor }],
       },

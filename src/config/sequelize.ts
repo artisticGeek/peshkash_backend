@@ -6,6 +6,7 @@ import { LineItem } from '../models/lineItem.model';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { QrLinkMapping } from '../models/qrLinkMapping.model';
+import { VendorPricingConfig } from '../models/vendorPricingConfig.model';
 
 dotenv.config();
 
@@ -20,7 +21,8 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL as string, {
     LineItem,
     Event,
     EventMenuMapping,
-    QrLinkMapping
+    QrLinkMapping,
+    VendorPricingConfig,
   ],
   logging: false,
 });
