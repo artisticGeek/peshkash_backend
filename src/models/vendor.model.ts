@@ -24,6 +24,9 @@ export class Vendor extends Model<Vendor> {
   @Column(DataType.TEXT)
   address?: string;
 
+  @Column({ field: 'has_contact_page', type: DataType.BOOLEAN, defaultValue: false })
+  hasContactPage!: boolean;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

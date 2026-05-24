@@ -3,12 +3,11 @@ import { LineItem } from '../models/lineItem.model';
 import { LineItemDTO } from '../models/dto/menuDetailResponse.dto';
 import { EventSummaryDTO } from '../models/dto/event.dto';
 import { VendorSummaryDTO } from '../models/dto/vendor.dto';
+import { Menu } from '../models/menu.model';
 
-// Function overloads
 function mapLineItemsRecursively(items: LineItem[], parentId?: number | null): LineItemDTO[];
 function mapLineItemsRecursively(items: LineItem[], parentId: number | null, itemName?: string): LineItemDTO[];
 
-// Unified implementation
 function mapLineItemsRecursively(
   items: LineItem[],
   parentId: number | null = null,
@@ -36,10 +35,60 @@ function mapLineItemsRecursively(
         isActive: item.isActive,
         createdAt: item.createdAt,
         itemType: item.type,
+        enumType: item.enumType,
         subCategoryLineItems: subItems,
       };
     })
     .filter(Boolean) as LineItemDTO[];
+}
+
+// 🔽 NEW FUNCTION TO MAP SPECIFIC ITEM DETAILS
+function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
+  const allItems = mapping.menu?.lineItems || [];
+
+  // Find the item
+  const targetItem = allItems.find(item => item.name === itemName);
+  if (!targetItem) {
+    throw new Error(`Item with name '${itemName}' not found`);
+  }
+
+  // Find parent hierarchy (flat array)
+  const parentItems: LineItem[] = [];
+  let currentParentId = targetItem.parentId;
+
+  while (currentParentId) {
+    const parent = allItems.find(item => item.id === currentParentId);
+    if (parent) {
+      parentItems.unshift(parent); // build in ascending order
+      currentParentId = parent.parentId;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    responseType: 'ITEM',
+    id: targetItem.name, // same as name
+    name: targetItem.name,
+    description: targetItem.description,
+    isActive: targetItem.isActive,
+    createdAt: targetItem.createdAt,
+    itemType: targetItem.type,
+    event: mapping.event,
+    displayName: targetItem.displayName,
+    menu: getMenuSummary(mapping.menu),
+    ingredients: targetItem.ingredients,
+    image: targetItem.image,
+    parentItems: parentItems.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      isActive: p.isActive,
+      createdAt: p.createdAt,
+      itemType: p.type,
+      displayName: p.displayName
+    })),
+  };
 }
 
 export const MapperUtil = {
@@ -64,11 +113,15 @@ export const MapperUtil = {
   }),
 
   mapActiveEventResponse: (mapping: EventMenuMapping, itemName?: string) => {
+    if (itemName) {
+      return mapSpecificItemResponse(mapping, itemName);
+    }
+
     const lineItems = mapping.menu?.lineItems || [];
-    const nestedLineItems = MapperUtil.mapLineItemsRecursively(lineItems, null, itemName);
+    const nestedLineItems = MapperUtil.mapLineItemsRecursively(lineItems);
 
     return {
-      responseType: itemName ? 'ITEM' : 'MENU',
+      responseType: 'MENU',
       id: mapping.id,
       createdAt: mapping.createdAt,
       event: MapperUtil.mapEvent(mapping.event),
@@ -106,3 +159,14 @@ export const MapperUtil = {
     };
   },
 };
+function getMenuSummary(menu: Menu) {
+  return {
+    id: menu.id,
+    name: menu.name,
+    displayName: menu.displayName,
+    description: menu.description,
+    isActive: menu.isActive
+  }
+
+}
+

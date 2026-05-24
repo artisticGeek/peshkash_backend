@@ -17,7 +17,7 @@ export class Event extends Model<Event> {
   @Column({ field: 'event_description', type: DataType.TEXT })
   eventDescription!: string;
 
-    @Column({ field: 'display_name', type: DataType.TEXT })
+  @Column({ field: 'display_name', type: DataType.TEXT })
   displayName!: string;
 
   @Column({ field: 'start_time', type: DataType.DATE })
@@ -25,6 +25,19 @@ export class Event extends Model<Event> {
 
   @Column({ field: 'end_time', type: DataType.DATE })
   endTime?: Date;
+
+  // 'draft' until payment confirmed, 'active' once paid
+  @Column({ type: DataType.STRING, defaultValue: 'active' })
+  status!: string;
+
+  @Column({ field: 'razorpay_order_id', type: DataType.STRING })
+  razorpayOrderId?: string;
+
+  @Column({ field: 'payment_id', type: DataType.STRING })
+  paymentId?: string;
+
+  @Column({ field: 'amount_paid', type: DataType.DECIMAL(10, 2) })
+  amountPaid?: number;
 
   @CreatedAt
   @Column({ field: 'created_at' })
