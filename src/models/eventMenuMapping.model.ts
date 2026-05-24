@@ -34,6 +34,12 @@ export class EventMenuMapping extends Model<EventMenuMapping> {
   })
   createdAt!: Date;
 
+  @Column({
+    field: 'display_name',
+    type: DataType.TEXT,
+  })
+  displayName?: string;
+
   @BelongsTo(() => Event)
   event!: Event;
 

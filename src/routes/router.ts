@@ -12,4 +12,7 @@ router.get('/event/:eventName/menu/:menuName/item/:itemName', QrMappingControlle
 
 router.get('/details/:qrHash', QrMappingController.redirectByQrHash);
 
+// Vendor contact card route
+router.get('/vendor/:vendorName', QrMappingController.getVendorCard);
+
 export default router;
