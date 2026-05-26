@@ -30,6 +30,11 @@ router.get('/qr-mappings', AdminController.listQrMappings);
 router.post('/qr-mappings', AdminController.upsertQrMapping);
 router.put('/qr-mappings/:id', AdminController.updateQrMapping);
 
+router.get('/qr-templates', AdminController.listQrTemplates);
+router.post('/qr-templates', AdminController.createQrTemplate);
+router.put('/qr-templates/:id', AdminController.updateQrTemplate);
+router.delete('/qr-templates/:id', AdminController.deleteQrTemplate);
+
 router.get('/previews', AdminController.getPreviews);
 router.get('/preview/menu', AdminController.buildMenuPath);
 router.get('/preview/item', AdminController.buildItemPath);

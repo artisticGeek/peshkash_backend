@@ -4,6 +4,7 @@ import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { LineItem } from '../models/lineItem.model';
 import { Menu } from '../models/menu.model';
 import { QrLinkMapping } from '../models/qrLinkMapping.model';
+import { QrTemplate } from '../models/qrTemplate.model';
 import { Vendor } from '../models/vendor.model';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -618,5 +619,35 @@ export const AdminService = {
     const menu = await ensureVendorOwnsMenu(event.vendorId, item.menuId);
     const path = itemPath(event.name, menu.name, item.name);
     return { path, publicUrl: `${ctx.origin}${path}` };
+  },
+
+  listQrTemplates: () =>
+    QrTemplate.findAll({ order: [['updatedAt', 'DESC']] }),
+
+  createQrTemplate: (body: any) =>
+    QrTemplate.create({
+      name: body.name || 'Untitled Template',
+      widthMm: Number(body.widthMm) || 85,
+      heightMm: Number(body.heightMm) || 54,
+      elements: body.elements ?? [],
+    } as any),
+
+  updateQrTemplate: async (id: number, body: any) => {
+    const tpl = await QrTemplate.findByPk(id);
+    if (!tpl) throw notFound('Template not found');
+    await tpl.update({
+      name: body.name ?? tpl.name,
+      widthMm: body.widthMm != null ? Number(body.widthMm) : tpl.widthMm,
+      heightMm: body.heightMm != null ? Number(body.heightMm) : tpl.heightMm,
+      elements: body.elements ?? tpl.elements,
+    });
+    return tpl;
+  },
+
+  deleteQrTemplate: async (id: number) => {
+    const tpl = await QrTemplate.findByPk(id);
+    if (!tpl) throw notFound('Template not found');
+    await tpl.destroy();
+    return { ok: true };
   },
 };

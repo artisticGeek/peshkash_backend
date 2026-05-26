@@ -59,6 +59,13 @@ export const AdminController = {
   updateQrMapping: (req: Request, res: Response) =>
     handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) })),
 
+  listQrTemplates: (_req: Request, res: Response) => handle(res, AdminService.listQrTemplates()),
+  createQrTemplate: (req: Request, res: Response) => handle(res, AdminService.createQrTemplate(req.body), 201),
+  updateQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.updateQrTemplate(Number(req.params.id), req.body)),
+  deleteQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteQrTemplate(Number(req.params.id))),
+
   getPreviews: (req: Request, res: Response) =>
     handle(res, AdminService.getPreviews({ origin: getOrigin(req) })),
   buildMenuPath: (req: Request, res: Response) =>
