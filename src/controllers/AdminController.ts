@@ -43,10 +43,21 @@ export const AdminController = {
   updateItem: (req: Request, res: Response) =>
     handle(res, AdminService.updateItem(Number(req.params.itemId), req.body)),
 
+  setEventStatus: (req: Request, res: Response) =>
+    handle(res, AdminService.setEventStatus(Number(req.params.eventId), req.body?.status)),
+
+  getItemPool: (req: Request, res: Response) =>
+    handle(res, AdminService.getItemPool(Number(req.params.vendorId))),
+
+  copyMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.copyMenu(Number(req.params.menuId), req.body), 201),
+
   listQrMappings: (req: Request, res: Response) =>
     handle(res, AdminService.listQrMappings({ origin: getOrigin(req) })),
   upsertQrMapping: (req: Request, res: Response) =>
     handle(res, AdminService.upsertQrMapping(req.body, { origin: getOrigin(req) }), 201),
+  updateQrMapping: (req: Request, res: Response) =>
+    handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) })),
 
   getPreviews: (req: Request, res: Response) =>
     handle(res, AdminService.getPreviews({ origin: getOrigin(req) })),

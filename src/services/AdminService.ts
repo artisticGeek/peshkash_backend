@@ -103,6 +103,7 @@ function cleanVendor(vendor: Vendor) {
     contact: vendor.contact ?? [],
     address: vendor.address,
     hasContactPage: vendor.hasContactPage,
+    logoUrl: vendor.logoUrl ?? null,
     createdAt: vendor.createdAt,
   };
 }
@@ -135,6 +136,8 @@ function cleanMenu(menu: Menu) {
     description: menu.description,
     isActive: menu.isActive,
     vendorId: menu.vendorId,
+    type: menu.getDataValue('type') ?? 'generic',
+    sourceMenuId: menu.getDataValue('sourceMenuId') ?? null,
     vendor: menu.vendor ? cleanVendor(menu.vendor) : undefined,
     createdAt: menu.createdAt,
   };
@@ -174,6 +177,8 @@ function withUrls(mapping: QrLinkMapping, ctx: UrlContext) {
     isActive: mapping.isActive,
     usageCount: mapping.usageCount,
     expiresAt: mapping.expiresAt,
+    eventId: mapping.getDataValue('eventId') ?? null,
+    vendorId: mapping.getDataValue('vendorId') ?? null,
     createdAt: mapping.createdAt,
     updatedAt: mapping.updatedAt,
     shortQrUrl: mapping.qrHash ? `${ctx.origin}/${mapping.qrHash}` : undefined,
@@ -212,6 +217,7 @@ export const AdminService = {
       contact: Array.isArray(body.contact) ? body.contact.filter(Boolean) : [],
       address: body.address?.trim() || null,
       hasContactPage: Boolean(body.hasContactPage),
+      logoUrl: body.logoUrl?.trim() || null,
     } as any);
     return cleanVendor(vendor);
   },
@@ -231,6 +237,7 @@ export const AdminService = {
       contact: Array.isArray(body.contact) ? body.contact.filter(Boolean) : vendor.contact,
       address: body.address?.trim() || null,
       hasContactPage: body.hasContactPage !== undefined ? Boolean(body.hasContactPage) : vendor.hasContactPage,
+      logoUrl: body.logoUrl !== undefined ? (body.logoUrl?.trim() || null) : vendor.logoUrl,
     });
     return cleanVendor(vendor);
   },
@@ -304,12 +311,15 @@ export const AdminService = {
     const name = requireSlug(body.name, 'Menu slug');
     const duplicate = await Menu.findOne({ where: { vendorId, name } });
     if (duplicate) throw conflict('This vendor already has a menu with this slug. Use a unique menu slug such as adding event type or version.');
+    const menuType = body.type === 'personalized' ? 'personalized' : 'generic';
     const menu = await Menu.create({
       vendorId,
       name,
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+      type: menuType,
+      sourceMenuId: body.sourceMenuId ? Number(body.sourceMenuId) : null,
     } as any);
     menu.vendor = vendor;
     return cleanMenu(menu);
@@ -439,17 +449,117 @@ export const AdminService = {
       throw badRequest('Destination URL must be an internal public path such as /event/... or /vendor/...');
     }
     const existing = await QrLinkMapping.findOne({ where: { qrHash } });
-    const data = {
+    const data: Record<string, unknown> = {
       qrHash,
       url,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       expiresAt: optionalDate(body.expiresAt) ?? null,
       updatedAt: new Date(),
     };
+    if (body.eventId !== undefined) data.eventId = Number(body.eventId) || null;
+    if (body.vendorId !== undefined) data.vendorId = Number(body.vendorId) || null;
     const mapping = existing
       ? await existing.update(data as any)
       : await QrLinkMapping.create({ ...data, usageCount: 0 } as any);
     return withUrls(mapping, ctx);
+  },
+
+  updateQrMapping: async (id: number, body: any, ctx: UrlContext) => {
+    const mapping = await QrLinkMapping.findByPk(id);
+    if (!mapping) throw notFound('QR mapping not found');
+    const url = body.url !== undefined ? requireText(body.url, 'Destination URL') : mapping.url;
+    if (url && !url.startsWith('/event/') && !url.startsWith('/vendor/')) {
+      throw badRequest('Destination URL must be an internal public path such as /event/... or /vendor/...');
+    }
+    const data: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.url !== undefined) data.url = url;
+    if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+    if (body.expiresAt !== undefined) data.expiresAt = optionalDate(body.expiresAt) ?? null;
+    if (body.eventId !== undefined) data.eventId = Number(body.eventId) || null;
+    if (body.vendorId !== undefined) data.vendorId = Number(body.vendorId) || null;
+    await mapping.update(data as any);
+    return withUrls(mapping, ctx);
+  },
+
+  setEventStatus: async (id: number, status: string) => {
+    if (!isStatus(status)) throw badRequest('Status must be draft, active, or inactive');
+    const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
+    if (!event) throw notFound('Event not found');
+    await Event.sequelize!.transaction(async (t) => {
+      await event.update({ status } as any, { transaction: t });
+      if (status === 'active' || status === 'inactive') {
+        await QrLinkMapping.update(
+          { isActive: status === 'active', updatedAt: new Date() } as any,
+          { where: { eventId: id } as any, transaction: t }
+        );
+      }
+    });
+    return AdminService.getEvent(id);
+  },
+
+  getItemPool: async (vendorId: number) => {
+    const menus = await Menu.findAll({
+      where: { vendorId },
+      attributes: ['id', 'name', 'displayName'],
+      order: [['createdAt', 'ASC']],
+    });
+    if (!menus.length) return [];
+    const menuIds = menus.map((m) => m.id);
+    const items = await LineItem.findAll({
+      where: { menuId: menuIds } as any,
+      include: [{ model: Menu, attributes: ['id', 'name', 'displayName'] }],
+      order: [['menuId', 'ASC'], ['name', 'ASC']],
+    });
+    return items.map((item) => ({
+      ...cleanItem(item),
+      menuName: (item.menu as any)?.name,
+      menuDisplayName: (item.menu as any)?.displayName,
+    }));
+  },
+
+  copyMenu: async (sourceMenuId: number, body: any) => {
+    const source = await Menu.findByPk(sourceMenuId, { include: [{ model: LineItem }] });
+    if (!source) throw notFound('Source menu not found');
+    const vendorId = Number(body.vendorId ?? source.vendorId);
+    if (!vendorId) throw badRequest('Vendor is required');
+    const name = requireSlug(body.name, 'Menu slug');
+    const duplicate = await Menu.findOne({ where: { vendorId, name } });
+    if (duplicate) throw conflict('This vendor already has a menu with this slug.');
+
+    const newMenu = await Menu.create({
+      vendorId,
+      name,
+      displayName: requireText(body.displayName, 'Menu display name'),
+      description: body.description?.trim() || source.description || null,
+      isActive: true,
+      type: 'personalized',
+      sourceMenuId: source.id,
+    } as any);
+
+    // Copy items in two passes: parents first, then children (preserving nesting)
+    const sourceItems = source.lineItems ?? [];
+    const idMap = new Map<number, number>();
+    const roots = sourceItems.filter((i) => !i.parentId);
+    const children = sourceItems.filter((i) => i.parentId);
+
+    for (const item of [...roots, ...children]) {
+      const created = await LineItem.create({
+        menuId: newMenu.id,
+        name: item.name,
+        displayName: item.displayName,
+        description: item.description ?? null,
+        ingredients: item.ingredients ?? null,
+        image: item.image ?? null,
+        type: item.type ?? 'item',
+        enumType: item.enumType ?? null,
+        isActive: item.isActive,
+        parentId: item.parentId ? (idMap.get(item.parentId) ?? null) : null,
+      } as any);
+      idMap.set(item.id, created.id as number);
+    }
+
+    const result = await Menu.findByPk(newMenu.id, { include: [Vendor] });
+    return cleanMenu(result!);
   },
 
   getPreviews: async (ctx: UrlContext) => {

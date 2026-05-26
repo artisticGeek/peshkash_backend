@@ -94,7 +94,8 @@ export const QrMappingController = {
         displayName: vendor.displayName,
         description: vendor.description,
         contact: vendor.contact,
-        address: vendor.address
+        address: vendor.address,
+        logoUrl: vendor.logoUrl ?? null,
       });
 
     } catch (error) {

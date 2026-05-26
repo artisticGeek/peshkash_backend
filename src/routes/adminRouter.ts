@@ -10,6 +10,7 @@ router.put('/vendors/:vendorId', AdminController.updateVendor);
 router.get('/events', AdminController.listEvents);
 router.post('/events', AdminController.createEvent);
 router.put('/events/:eventId', AdminController.updateEvent);
+router.patch('/events/:eventId/status', AdminController.setEventStatus);
 router.get('/events/:eventId/menus', AdminController.listEventMenus);
 router.post('/events/:eventId/menus/:menuId', AdminController.linkMenuToEvent);
 router.delete('/events/:eventId/menus/:menuId', AdminController.unlinkMenuFromEvent);
@@ -17,6 +18,9 @@ router.delete('/events/:eventId/menus/:menuId', AdminController.unlinkMenuFromEv
 router.get('/menus', AdminController.listMenus);
 router.post('/menus', AdminController.createMenu);
 router.put('/menus/:menuId', AdminController.updateMenu);
+router.post('/menus/:menuId/copy', AdminController.copyMenu);
+
+router.get('/vendors/:vendorId/item-pool', AdminController.getItemPool);
 
 router.get('/items', AdminController.listItems);
 router.post('/items', AdminController.createItem);
@@ -24,6 +28,7 @@ router.put('/items/:itemId', AdminController.updateItem);
 
 router.get('/qr-mappings', AdminController.listQrMappings);
 router.post('/qr-mappings', AdminController.upsertQrMapping);
+router.put('/qr-mappings/:id', AdminController.updateQrMapping);
 
 router.get('/previews', AdminController.getPreviews);
 router.get('/preview/menu', AdminController.buildMenuPath);
