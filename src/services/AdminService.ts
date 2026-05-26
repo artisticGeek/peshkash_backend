@@ -1,4 +1,4 @@
-import { Op, QueryTypes } from 'sequelize';
+import { Op, QueryTypes, literal } from 'sequelize';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { LineItem } from '../models/lineItem.model';
@@ -45,8 +45,10 @@ async function hasEventMenuDisplayNameColumn() {
 }
 
 async function eventMenuMappingAttributes() {
-  const attrs = ['id', 'eventId', 'menuId', 'createdAt'];
-  if (await hasEventMenuDisplayNameColumn()) attrs.push('displayName');
+  const attrs: any[] = ['id', 'eventId', 'menuId', 'createdAt'];
+  if (await hasEventMenuDisplayNameColumn()) {
+    attrs.push([literal('"display_name"'), 'displayName']);
+  }
   return attrs;
 }
 
