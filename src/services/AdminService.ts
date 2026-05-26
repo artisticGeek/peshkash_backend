@@ -440,16 +440,17 @@ export const AdminService = {
     return cleanItem(item);
   },
 
-  listQrMappings: async (ctx: UrlContext) => {
-    const mappings = await QrLinkMapping.findAll({ order: [['createdAt', 'DESC']] });
+  listQrMappings: async (ctx: UrlContext, vendorId?: number) => {
+    const where = vendorId ? { vendorId } : {};
+    const mappings = await QrLinkMapping.findAll({ where: where as any, order: [['createdAt', 'DESC']] });
     return mappings.map((mapping) => withUrls(mapping, ctx));
   },
 
   upsertQrMapping: async (body: any, ctx: UrlContext) => {
     const qrHash = requireSlug(body.qrHash, 'QR hash');
     const url = requireText(body.url, 'Destination URL');
-    if (!url.startsWith('/event/') && !url.startsWith('/vendor/')) {
-      throw badRequest('Destination URL must be an internal public path such as /event/... or /vendor/...');
+    if (!url.startsWith('/')) {
+      throw badRequest('Destination URL must be an internal path starting with /');
     }
     const existing = await QrLinkMapping.findOne({ where: { qrHash } });
     const data: Record<string, unknown> = {
@@ -471,8 +472,8 @@ export const AdminService = {
     const mapping = await QrLinkMapping.findByPk(id);
     if (!mapping) throw notFound('QR mapping not found');
     const url = body.url !== undefined ? requireText(body.url, 'Destination URL') : mapping.url;
-    if (url && !url.startsWith('/event/') && !url.startsWith('/vendor/')) {
-      throw badRequest('Destination URL must be an internal public path such as /event/... or /vendor/...');
+    if (url && !url.startsWith('/')) {
+      throw badRequest('Destination URL must be an internal path starting with /');
     }
     const data: Record<string, unknown> = { updatedAt: new Date() };
     if (body.url !== undefined) data.url = url;
@@ -650,6 +651,58 @@ export const AdminService = {
     const tpl = await QrTemplate.findByPk(id);
     if (!tpl) throw notFound('Template not found');
     await tpl.destroy();
+    return { ok: true };
+  },
+
+  // ── DELETE operations ──────────────────────────────────────────────────────
+
+  deleteVendor: async (id: number) => {
+    const vendor = await Vendor.findByPk(id);
+    if (!vendor) throw notFound('Vendor not found');
+    const eventCount = await Event.count({ where: { vendorId: id } });
+    if (eventCount > 0) throw badRequest(`Cannot delete: vendor has ${eventCount} event(s). Delete all events first.`);
+    const menuCount = await Menu.count({ where: { vendorId: id } });
+    if (menuCount > 0) throw badRequest(`Cannot delete: vendor has ${menuCount} menu(s). Delete all menus first.`);
+    await vendor.destroy();
+    return { ok: true };
+  },
+
+  deleteEvent: async (id: number) => {
+    const event = await Event.findByPk(id, { attributes: await eventAttributes() });
+    if (!event) throw notFound('Event not found');
+    const status = event.getDataValue('status');
+    if (status === 'active') throw badRequest('Cannot delete an active event. Deactivate it first.');
+    // Cascade: remove event–menu links and associated QR mappings, then delete event
+    await EventMenuMapping.destroy({ where: { eventId: id } });
+    await QrLinkMapping.destroy({ where: { eventId: id } } as any);
+    await event.destroy();
+    return { ok: true };
+  },
+
+  deleteMenu: async (id: number) => {
+    const menu = await Menu.findByPk(id);
+    if (!menu) throw notFound('Menu not found');
+    const linkCount = await EventMenuMapping.count({ where: { menuId: id } });
+    if (linkCount > 0) throw badRequest(`Cannot delete: menu is linked to ${linkCount} event(s). Unlink it first.`);
+    // Cascade: delete all items in this menu, then delete the menu
+    await LineItem.destroy({ where: { menuId: id } });
+    await menu.destroy();
+    return { ok: true };
+  },
+
+  deleteItem: async (id: number) => {
+    const item = await LineItem.findByPk(id);
+    if (!item) throw notFound('Item not found');
+    // Orphan any children before deleting (null out their parentId)
+    await LineItem.update({ parentId: null } as any, { where: { parentId: id } as any });
+    await item.destroy();
+    return { ok: true };
+  },
+
+  deleteQrMapping: async (id: number) => {
+    const mapping = await QrLinkMapping.findByPk(id);
+    if (!mapping) throw notFound('QR mapping not found');
+    await mapping.destroy();
     return { ok: true };
   },
 };
