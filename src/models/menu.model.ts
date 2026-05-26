@@ -43,6 +43,16 @@ export class Menu extends Model<Menu> {
   @Column({ field: 'vendor_id', type: DataType.BIGINT })
   vendorId!: number;
 
+  @Column({ type: DataType.TEXT, defaultValue: 'generic' })
+  type!: string;
+
+  @ForeignKey(() => Menu)
+  @Column({ field: 'source_menu_id', type: DataType.BIGINT })
+  sourceMenuId?: number;
+
+  @BelongsTo(() => Menu, { foreignKey: 'sourceMenuId', as: 'sourceMenu' })
+  sourceMenu?: Menu;
+
   @BelongsTo(() => Vendor)
   vendor!: Vendor;
 

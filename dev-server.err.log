@@ -1,0 +1,1791 @@
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '4',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(4) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-5',
+      'Serves 5',
+      'Small Serving for birthday Party and some random text for more details about the dish making it sound attractive etc, just insta-things now a days. No need otherwise. Like this text, which is added just to test the space',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(4) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-5',
+      'Serves 5',
+      'Small Serving for birthday Party and some random text for more details about the dish making it sound attractive etc, just insta-things now a days. No need otherwise. Like this text, which is added just to test the space',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '4' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '3',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(3) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-5',
+      'Serves 5',
+      'Small Serving for birthday Party and some random text for more details about the dish making it sound attractive etc, just insta-things now a days. No need otherwise. Like this text, which is added just to test the space',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(3) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-5',
+      'Serves 5',
+      'Small Serving for birthday Party and some random text for more details about the dish making it sound attractive etc, just insta-things now a days. No need otherwise. Like this text, which is added just to test the space',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '3' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '5',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(5) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-6',
+      'Serves 6',
+      'Small Serving for birthday Party',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(5) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-6',
+      'Serves 6',
+      'Small Serving for birthday Party',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '5' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '6',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(6) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-6',
+      'Serves 6',
+      'Small Serving for birthday Party',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(6) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'serves-6',
+      'Serves 6',
+      'Small Serving for birthday Party',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'Serving',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '6' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '7',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(7) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-without-butter',
+      'Dal Without Butter',
+      'For health conscious people',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dishtype',
+      null,
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(7) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-without-butter',
+      'Dal Without Butter',
+      'For health conscious people',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dishtype',
+      null,
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '7' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '8',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(8) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-without-butter',
+      'Dal Without Butter',
+      'For health conscious people',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dishtype',
+      null,
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(8) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-without-butter',
+      'Dal Without Butter',
+      'For health conscious people',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dishtype',
+      null,
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '8' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '9',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(9) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 192,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(9) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '9' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '10',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 193,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(10) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 193,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(10) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '10' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'id must be unique',
+      type: 'unique violation',
+      path: 'id',
+      value: '11',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 193,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(11) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'main-course',
+      'Main Course',
+      'Hearty main dishes.',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'category',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_pkey"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 193,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (id)=(11) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_pkey',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'main-course',
+      'Main Course',
+      'Hearty main dishes.',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'category',
+      'Non-Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { id: '11' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'menu_id must be unique',
+      type: 'unique violation',
+      path: 'menu_id',
+      value: '6',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    },
+    ValidationErrorItem {
+      message: 'name must be unique',
+      type: 'unique violation',
+      path: 'name',
+      value: 'paneer-tikka',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 249,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, paneer-tikka) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'paneer-tikka',
+      'Mughal-e-Desi Paneer Tikka',
+      'Originally prepared and tracked back to the Mughal era, where it was created as a vegetarian adaptation of non-vegetarian kebabs to cater to the vegetarian population in the royal kitchens.\n' +
+        '\n' +
+        'Shree cateres bring a modern touch to it with more Indian Spices and authentic Punjabi Grilling technique',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 249,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, paneer-tikka) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'paneer-tikka',
+      'Mughal-e-Desi Paneer Tikka',
+      'Originally prepared and tracked back to the Mughal era, where it was created as a vegetarian adaptation of non-vegetarian kebabs to cater to the vegetarian population in the royal kitchens.\n' +
+        '\n' +
+        'Shree cateres bring a modern touch to it with more Indian Spices and authentic Punjabi Grilling technique',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Egg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { menu_id: '6', name: 'paneer-tikka' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'menu_id must be unique',
+      type: 'unique violation',
+      path: 'menu_id',
+      value: '6',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    },
+    ValidationErrorItem {
+      message: 'name must be unique',
+      type: 'unique violation',
+      path: 'name',
+      value: 'dal-makhani',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 248,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, dal-makhani) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 248,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, dal-makhani) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'dal-makhani',
+      'Dal Makhni',
+      'Creamy black lentils.',
+      'Red Cilly, Black Pepper, Ghee, Fancy Ingredient',
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { menu_id: '6', name: 'dal-makhani' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.
+    at conflict (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:65:24)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:383:26)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 409
+}
+Admin API error: Error: This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.
+    at conflict (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:65:24)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:383:26)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 409
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.insert (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:795:21)
+    at LineItem.save (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:4154:35)
+    at Function.create (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2305:12)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:388:18) {
+  name: 'SequelizeUniqueConstraintError',
+  errors: [
+    ValidationErrorItem {
+      message: 'menu_id must be unique',
+      type: 'unique violation',
+      path: 'menu_id',
+      value: '6',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    },
+    ValidationErrorItem {
+      message: 'name must be unique',
+      type: 'unique violation',
+      path: 'name',
+      value: 'veg-spring-rolls',
+      origin: 'DB',
+      instance: [LineItem],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  parent: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 253,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, veg-spring-rolls) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'veg-spring-rolls',
+      'Veg Spring Rolls',
+      'Crispy rolls with veggie filling.',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  original: error: duplicate key value violates unique constraint "line_item_menu_name_unique_idx"
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 253,
+    severity: 'ERROR',
+    code: '23505',
+    detail: 'Key (menu_id, name)=(6, veg-spring-rolls) already exists.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: 'public',
+    table: 'line_item',
+    column: undefined,
+    dataType: undefined,
+    constraint: 'line_item_menu_name_unique_idx',
+    file: 'nbtinsert.c',
+    line: '666',
+    routine: '_bt_check_unique',
+    sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";',
+    parameters: [
+      'veg-spring-rolls',
+      'Veg Spring Rolls',
+      'Crispy rolls with veggie filling.',
+      null,
+      'https://ctwlztrccvtxlzackzrw.supabase.co/storage/v1/object/sign/peshkash-images/paneerTikka.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YmE5NTQyZC02YmZjLTQ4MTQtYWZmNC04MDkwOTJmNzdjZmQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwZXNoa2FzaC1pbWFnZXMvcGFuZWVyVGlra2EuanBnIiwiaWF0IjoxNzU0NzY3Njg1LCJleHAiOjE3ODYzMDM2ODV9.Bw4Q_F9sfv8PrJayN2yXKdVs8wuH0tdcUZX5-cJZC48',
+      'dish',
+      'Veg',
+      true,
+      6,
+      null
+    ]
+  },
+  fields: { menu_id: '6', name: 'veg-spring-rolls' },
+  sql: 'INSERT INTO "line_item" ("id","name","display_name","description","ingredients","image","type","enum_type","is_active","menu_id","parent_id") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING "id","name","display_name","description","ingredients","image","type","enum_type","is_active","created_at","menu_id","parent_id";'
+}
+Admin API error: Error: This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.
+    at conflict (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:65:24)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:383:26)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 409
+}
+Admin API error: Error: This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.
+    at conflict (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:65:24)
+    at Object.createItem (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:383:26)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 409
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: HostNotFoundError [SequelizeHostNotFoundError]: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+    at Client._connectionCallback (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:336:19)
+    at Client._handleErrorEvent (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\client.js:346:19)
+    at Connection.emit (node:events:519:28)
+    at Socket.reportStreamError (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg\lib\connection.js:57:12)
+    at Socket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  parent: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  },
+  original: Error: getaddrinfo ENOTFOUND aws-0-ap-south-1.pooler.supabase.com
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'aws-0-ap-south-1.pooler.supabase.com'
+  }
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.select (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at Function.findAll (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:1824:21)
+    at Function.findOne (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:1998:12)
+    at Function.findOrCreate (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2403:21)
+    at Object.linkMenuToEvent (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:343:23) {
+  name: 'SequelizeDatabaseError',
+  parent: error: column "display_name" does not exist
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 112,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '91',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3716',
+    routine: 'errorMissingColumn',
+    sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 8 AND "EventMenuMapping"."menu_id" = 5 LIMIT 1;',
+    parameters: undefined
+  },
+  original: error: column "display_name" does not exist
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 112,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '91',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3716',
+    routine: 'errorMissingColumn',
+    sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 8 AND "EventMenuMapping"."menu_id" = 5 LIMIT 1;',
+    parameters: undefined
+  },
+  sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 8 AND "EventMenuMapping"."menu_id" = 5 LIMIT 1;',
+  parameters: {}
+}
+Admin API error: Error: 
+    at Query.run (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at PostgresQueryInterface.select (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at Function.findAll (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:1824:21)
+    at Function.findOne (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:1998:12)
+    at Function.findOrCreate (D:\claude cowork\peshkash full\peshkash_backend\node_modules\sequelize\src\model.js:2403:21)
+    at Object.linkMenuToEvent (D:\claude cowork\peshkash full\peshkash_backend\src\services\AdminService.ts:343:23) {
+  name: 'SequelizeDatabaseError',
+  parent: error: column "display_name" does not exist
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 112,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '91',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3716',
+    routine: 'errorMissingColumn',
+    sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 6 AND "EventMenuMapping"."menu_id" = 1 LIMIT 1;',
+    parameters: undefined
+  },
+  original: error: column "display_name" does not exist
+      at Parser.parseErrorMessage (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:369:69)
+      at Parser.handlePacket (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:187:21)
+      at Parser.parse (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\parser.ts:102:30)
+      at Socket.<anonymous> (D:\claude cowork\peshkash full\peshkash_backend\node_modules\pg-protocol\src\index.ts:7:48)
+      at Socket.emit (node:events:519:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 112,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '91',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3716',
+    routine: 'errorMissingColumn',
+    sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 6 AND "EventMenuMapping"."menu_id" = 1 LIMIT 1;',
+    parameters: undefined
+  },
+  sql: 'SELECT "id", "event_id" AS "eventId", "menu_id" AS "menuId", "created_at" AS "createdAt", "display_name" AS "displayName" FROM "event_menu_mapping" AS "EventMenuMapping" WHERE "EventMenuMapping"."event_id" = 6 AND "EventMenuMapping"."menu_id" = 1 LIMIT 1;',
+  parameters: {}
+}

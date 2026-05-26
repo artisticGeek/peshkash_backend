@@ -43,10 +43,39 @@ export const AdminController = {
   updateItem: (req: Request, res: Response) =>
     handle(res, AdminService.updateItem(Number(req.params.itemId), req.body)),
 
+  setEventStatus: (req: Request, res: Response) =>
+    handle(res, AdminService.setEventStatus(Number(req.params.eventId), req.body?.status)),
+
+  getItemPool: (req: Request, res: Response) =>
+    handle(res, AdminService.getItemPool(Number(req.params.vendorId))),
+
+  copyMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.copyMenu(Number(req.params.menuId), req.body), 201),
+
   listQrMappings: (req: Request, res: Response) =>
-    handle(res, AdminService.listQrMappings({ origin: getOrigin(req) })),
+    handle(res, AdminService.listQrMappings({ origin: getOrigin(req) }, req.query.vendorId ? Number(req.query.vendorId) : undefined)),
   upsertQrMapping: (req: Request, res: Response) =>
     handle(res, AdminService.upsertQrMapping(req.body, { origin: getOrigin(req) }), 201),
+  updateQrMapping: (req: Request, res: Response) =>
+    handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) })),
+
+  listQrTemplates: (_req: Request, res: Response) => handle(res, AdminService.listQrTemplates()),
+  createQrTemplate: (req: Request, res: Response) => handle(res, AdminService.createQrTemplate(req.body), 201),
+  updateQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.updateQrTemplate(Number(req.params.id), req.body)),
+  deleteQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteQrTemplate(Number(req.params.id))),
+
+  deleteVendor: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteVendor(Number(req.params.vendorId))),
+  deleteEvent: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteEvent(Number(req.params.eventId))),
+  deleteMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteMenu(Number(req.params.menuId))),
+  deleteItem: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteItem(Number(req.params.itemId))),
+  deleteQrMapping: (req: Request, res: Response) =>
+    handle(res, AdminService.deleteQrMapping(Number(req.params.id))),
 
   getPreviews: (req: Request, res: Response) =>
     handle(res, AdminService.getPreviews({ origin: getOrigin(req) })),

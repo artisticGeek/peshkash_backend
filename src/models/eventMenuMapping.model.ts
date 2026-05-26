@@ -9,9 +9,14 @@ import {
 import { Event } from './event.model';
 import { Menu } from './menu.model';
 
+// NOTE: display_name exists in the service layer via hasEventMenuDisplayNameColumn() guard.
+// It is intentionally NOT declared as a @Column here so that Sequelize does not attempt to
+// SELECT display_name when the DB column is absent. Once the migration
+// "2026-05-26-event-menu-display-name.sql" has been applied, add it back.
+
 @Table({
   tableName: 'event_menu_mapping',
-  timestamps: false, // or true if you're using `created_at`
+  timestamps: false,
 })
 export class EventMenuMapping extends Model<EventMenuMapping> {
   @ForeignKey(() => Event)
@@ -33,12 +38,6 @@ export class EventMenuMapping extends Model<EventMenuMapping> {
     type: DataType.DATE,
   })
   createdAt!: Date;
-
-  @Column({
-    field: 'display_name',
-    type: DataType.TEXT,
-  })
-  displayName?: string;
 
   @BelongsTo(() => Event)
   event!: Event;

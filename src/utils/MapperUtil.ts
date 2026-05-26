@@ -101,6 +101,7 @@ export const MapperUtil = {
     contact: vendor.contact,
     address: vendor.address,
     description: vendor.description,
+    hasContactPage: vendor.hasContactPage ?? false,
   }),
 
   mapEvent: (event: any): EventSummaryDTO => ({
@@ -132,6 +133,7 @@ export const MapperUtil = {
         displayName: mapping.menu?.displayName,
         description: mapping.menu?.description,
         isActive: mapping.menu?.isActive,
+        type: mapping.menu?.getDataValue?.('type') ?? 'generic',
         createdAt: mapping.menu?.createdAt,
         vendorId: mapping.menu?.vendorId,
         lineItems: nestedLineItems,
@@ -152,6 +154,7 @@ export const MapperUtil = {
         displayName: mapping.menu?.displayName,
         description: mapping.menu?.description,
         isActive: mapping.menu?.isActive,
+        type: mapping.menu?.getDataValue?.('type') ?? 'generic',
         createdAt: mapping.menu?.createdAt,
         vendorId: mapping.menu?.vendorId,
         lineItems: [],
@@ -165,8 +168,8 @@ function getMenuSummary(menu: Menu) {
     name: menu.name,
     displayName: menu.displayName,
     description: menu.description,
-    isActive: menu.isActive
+    isActive: menu.isActive,
+    type: menu.getDataValue?.('type') ?? 'generic',
   }
-
 }
 
