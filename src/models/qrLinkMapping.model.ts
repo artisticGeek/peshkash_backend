@@ -1,7 +1,9 @@
 import {
   Table, Column, Model, PrimaryKey, AutoIncrement, DataType,
-  CreatedAt
+  CreatedAt, ForeignKey, BelongsTo,
 } from 'sequelize-typescript';
+import { Event } from './event.model';
+import { Vendor } from './vendor.model';
 
 @Table({ tableName: 'qr_link_mapping', timestamps: false })
 export class QrLinkMapping extends Model<QrLinkMapping> {
@@ -30,4 +32,18 @@ export class QrLinkMapping extends Model<QrLinkMapping> {
 
   @Column({ field: 'expires_at', type: DataType.DATE })
   expiresAt?: Date;
+
+  @ForeignKey(() => Event)
+  @Column({ field: 'event_id', type: DataType.BIGINT })
+  eventId?: number;
+
+  @BelongsTo(() => Event)
+  event?: Event;
+
+  @ForeignKey(() => Vendor)
+  @Column({ field: 'vendor_id', type: DataType.BIGINT })
+  vendorId?: number;
+
+  @BelongsTo(() => Vendor)
+  vendor?: Vendor;
 }

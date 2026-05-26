@@ -5,4 +5,5 @@ export interface VendorSummaryDTO {
   description?: string;
   contact?: string[];
   address?: string;
+  hasContactPage?: boolean;
 }
