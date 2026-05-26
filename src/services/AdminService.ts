@@ -53,7 +53,9 @@ async function eventMenuMappingAttributes() {
 }
 
 function mappingDisplayName(mapping: EventMenuMapping) {
-  return mapping.getDataValue('displayName') || mapping.menu.displayName;
+  // 'displayName' is not declared on EventMenuMapping because the column is conditionally
+  // present (see hasEventMenuDisplayNameColumn). Cast to any so TS doesn't reject it.
+  return mapping.getDataValue('displayName' as any) || mapping.menu.displayName;
 }
 
 function badRequest(message: string) {
