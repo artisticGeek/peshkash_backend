@@ -1,4 +1,3 @@
-import { QrLinkMapping } from '../models/qrLinkMapping.model';
 import { QrLinkMappingRepo } from '../repositories/qrLinkMapping.repository';
 import { Event } from '../models/event.model';
 import { Menu } from '../models/menu.model';
@@ -39,12 +38,12 @@ async function normalizeDestination(url: string) {
 export const QrLinkMappingService = {
 
     getHashRedirectionUrl: async (qrHash: string): Promise<{ redirectionUrl: string } | null> => {
-        const qrLinkMapping: QrLinkMapping | null = await QrLinkMappingRepo.getByHash(qrHash);
+        const qrLinkMapping = await QrLinkMappingRepo.getByHash(qrHash);
 
         if (!qrLinkMapping || !qrLinkMapping.url || !qrLinkMapping.isActive) {
-            return null; // no mapping found
+            return null;
         }
-        
+
         return { redirectionUrl: await normalizeDestination(qrLinkMapping.url) };
     }
 };
