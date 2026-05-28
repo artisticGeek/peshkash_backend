@@ -58,6 +58,8 @@ export const AdminController = {
     handle(res, AdminService.upsertQrMapping(req.body, { origin: getOrigin(req) }), 201),
   updateQrMapping: (req: Request, res: Response) =>
     handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) })),
+  getOrCreateEventQr: (req: Request, res: Response) =>
+    handle(res, AdminService.getOrCreateEventQr(Number(req.params.eventId), { origin: getOrigin(req) }), 201),
 
   listQrTemplates: (_req: Request, res: Response) => handle(res, AdminService.listQrTemplates()),
   createQrTemplate: (req: Request, res: Response) => handle(res, AdminService.createQrTemplate(req.body), 201),

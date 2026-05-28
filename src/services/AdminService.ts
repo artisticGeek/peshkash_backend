@@ -175,20 +175,41 @@ function itemPath(eventName: string, menuName: string, itemName: string) {
 
 function withUrls(mapping: QrLinkMapping, ctx: UrlContext) {
   const destination = mapping.url?.startsWith('/') ? mapping.url : mapping.url ? `/${mapping.url}` : undefined;
+  const type = (mapping.type || 'static') as string;
   return {
     id: mapping.id,
     qrHash: mapping.qrHash,
     url: mapping.url,
+    type,
     isActive: mapping.isActive,
     usageCount: mapping.usageCount,
     expiresAt: mapping.expiresAt,
-    eventId: mapping.getDataValue('eventId') ?? null,
-    vendorId: mapping.getDataValue('vendorId') ?? null,
+    eventId: mapping.getDataValue('eventId') != null ? Number(mapping.getDataValue('eventId')) : null,
+    vendorId: mapping.getDataValue('vendorId') != null ? Number(mapping.getDataValue('vendorId')) : null,
     createdAt: mapping.createdAt,
     updatedAt: mapping.updatedAt,
     shortQrUrl: mapping.qrHash ? `${ctx.origin}/${mapping.qrHash}` : undefined,
     finalPublicUrl: destination ? `${ctx.origin}${destination}` : undefined,
   };
+}
+
+// When menus are linked/unlinked, keep all event-type QRs for this event
+// pointing to the current first linked menu. Pure URL update — redirect logic unchanged.
+async function syncEventQrUrls(eventId: number, eventName: string) {
+  const links = await EventMenuMapping.findAll({
+    where: { eventId },
+    attributes: await eventMenuMappingAttributes(),
+    include: [{ model: Menu, attributes: ['name'] }],
+    order: [['createdAt', 'ASC']],
+  });
+  const firstMenu = links[0]?.menu;
+  const url = firstMenu
+    ? `/event/${eventName}/menu/${firstMenu.name}`
+    : `/event/${eventName}`;
+  await QrLinkMapping.update(
+    { url, updatedAt: new Date() },
+    { where: { eventId, type: 'event' } as any }
+  );
 }
 
 async function ensureVendorOwnsMenu(vendorId: number, menuId: number) {
@@ -362,11 +383,16 @@ export const AdminService = {
     if (displayName?.trim() && await hasEventMenuDisplayNameColumn()) {
       await mapping.update({ displayName: displayName.trim() } as any);
     }
+    // Keep any assigned event QRs pointing to the current first menu
+    await syncEventQrUrls(eventId, event.name);
     return AdminService.listEventMenus(eventId);
   },
 
   unlinkMenuFromEvent: async (eventId: number, menuId: number) => {
     await EventMenuMapping.destroy({ where: { eventId, menuId } });
+    // Re-sync so QR URL updates to next menu (or falls back to event page if none left)
+    const event = await Event.findByPk(eventId, { attributes: ['id', 'name'] });
+    if (event) await syncEventQrUrls(eventId, event.name);
     return AdminService.listEventMenus(eventId);
   },
 
@@ -450,14 +476,26 @@ export const AdminService = {
 
   upsertQrMapping: async (body: any, ctx: UrlContext) => {
     const qrHash = requireSlug(body.qrHash, 'QR hash');
-    const url = requireText(body.url, 'Destination URL');
-    if (!url.startsWith('/')) {
-      throw badRequest('Destination URL must be an internal path starting with /');
+    const type = body.type === 'event' ? 'event' : 'static';
+    let url: string | null = null;
+    if (type === 'event') {
+      // Auto-build the event-level URL from eventId so the pure redirect model still works
+      const eventId = Number(body.eventId);
+      if (!eventId) throw badRequest('Event is required for event-type QRs');
+      const event = await Event.findByPk(eventId, { attributes: ['name'] });
+      if (!event) throw badRequest('Event not found');
+      url = `/event/${event.name}`;
+    } else {
+      url = requireText(body.url, 'Destination URL');
+      if (!url.startsWith('/')) {
+        throw badRequest('Destination URL must be an internal path starting with /');
+      }
     }
     const existing = await QrLinkMapping.findOne({ where: { qrHash } });
     const data: Record<string, unknown> = {
       qrHash,
       url,
+      type,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       expiresAt: optionalDate(body.expiresAt) ?? null,
       updatedAt: new Date(),
@@ -473,18 +511,60 @@ export const AdminService = {
   updateQrMapping: async (id: number, body: any, ctx: UrlContext) => {
     const mapping = await QrLinkMapping.findByPk(id);
     if (!mapping) throw notFound('QR mapping not found');
-    const url = body.url !== undefined ? requireText(body.url, 'Destination URL') : mapping.url;
-    if (url && !url.startsWith('/')) {
-      throw badRequest('Destination URL must be an internal path starting with /');
+    const type = body.type !== undefined ? (body.type === 'event' ? 'event' : 'static') : (mapping.type || 'static');
+    let url = mapping.url;
+    if (body.url !== undefined) {
+      if (type === 'event') {
+        // Keep the url derived from eventId; if eventId changes, recompute
+        if (body.eventId !== undefined) {
+          const event = await Event.findByPk(Number(body.eventId), { attributes: ['name'] });
+          url = event ? `/event/${event.name}` : mapping.url;
+        }
+      } else {
+        url = requireText(body.url, 'Destination URL');
+        if (!url.startsWith('/')) throw badRequest('Destination URL must be an internal path starting with /');
+      }
     }
-    const data: Record<string, unknown> = { updatedAt: new Date() };
-    if (body.url !== undefined) data.url = url;
+    const data: Record<string, unknown> = { updatedAt: new Date(), type };
+    if (body.url !== undefined || body.type !== undefined || body.eventId !== undefined) data.url = url;
     if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
     if (body.expiresAt !== undefined) data.expiresAt = optionalDate(body.expiresAt) ?? null;
     if (body.eventId !== undefined) data.eventId = Number(body.eventId) || null;
     if (body.vendorId !== undefined) data.vendorId = Number(body.vendorId) || null;
     await mapping.update(data as any);
     return withUrls(mapping, ctx);
+  },
+
+  getOrCreateEventQr: async (eventId: number, ctx: UrlContext) => {
+    const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
+    if (!event) throw notFound('Event not found');
+
+    // Return existing event-dynamic QR if one exists
+    const existing = await QrLinkMapping.findOne({ where: { eventId, type: 'event' } as any });
+    if (existing) return withUrls(existing, ctx);
+
+    // Build a unique hash: prefer event slug, add suffix if taken
+    let qrHash = event.name;
+    if (await QrLinkMapping.findOne({ where: { qrHash } })) {
+      qrHash = `${event.name}-qr`;
+    }
+    if (await QrLinkMapping.findOne({ where: { qrHash } })) {
+      qrHash = `${event.name}-${Date.now().toString(36)}`;
+    }
+
+    const mapping = await QrLinkMapping.create({
+      qrHash,
+      url: `/event/${event.name}`,  // placeholder; syncEventQrUrls immediately overwrites if menus exist
+      type: 'event',
+      eventId,
+      vendorId: event.vendorId,
+      isActive: true,
+      usageCount: 0,
+    } as any);
+    // Immediately sync so the URL reflects current linked menus (if any)
+    await syncEventQrUrls(eventId, event.name);
+    const updated = await QrLinkMapping.findByPk(mapping.id);
+    return withUrls(updated!, ctx);
   },
 
   setEventStatus: async (id: number, status: string) => {

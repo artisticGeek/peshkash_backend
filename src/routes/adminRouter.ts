@@ -32,6 +32,7 @@ router.delete('/items/:itemId', AdminController.deleteItem);
 
 router.get('/qr-mappings', AdminController.listQrMappings);
 router.post('/qr-mappings', AdminController.upsertQrMapping);
+router.post('/qr-mappings/for-event/:eventId', AdminController.getOrCreateEventQr);
 router.put('/qr-mappings/:id', AdminController.updateQrMapping);
 router.delete('/qr-mappings/:id', AdminController.deleteQrMapping);
 
