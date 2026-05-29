@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import router from './routes/router';
 import onboardingRouter from './routes/onboardingRouter';
 import adminRouter from './routes/adminRouter';
+import analyticsRouter from './routes/analyticsRouter';
 import { sequelize } from './config/sequelize';
 
 dotenv.config();
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use('/api', router);
 app.use('/api/onboard/:vendorName', onboardingRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/analytics', analyticsRouter);
 
 app.get('/', (_req, res) => {
   res.send('✅ Peshkash backend is alive!');

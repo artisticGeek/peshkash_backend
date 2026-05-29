@@ -8,6 +8,7 @@ import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { QrLinkMapping } from '../models/qrLinkMapping.model';
 import { QrTemplate } from '../models/qrTemplate.model';
 import { VendorPricingConfig } from '../models/vendorPricingConfig.model';
+import { AnalyticsEvent } from '../models/analyticsEvent.model';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL as string, {
     QrLinkMapping,
     QrTemplate,
     VendorPricingConfig,
+    AnalyticsEvent,
   ],
   logging: false,
 });
