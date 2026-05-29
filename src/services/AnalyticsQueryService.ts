@@ -1,14 +1,29 @@
 import { AnalyticsRepo, DateRangeFilter } from '../repositories/analytics.repository';
 
 /** Pre-defined date ranges for the dashboard filter */
-export function buildDateRange(range: '7d' | '30d' | '90d' | 'all', vendorId?: number): DateRangeFilter {
+export function buildDateRange(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): DateRangeFilter {
   const to = new Date();
   const from = new Date();
   if (range === '7d')  from.setDate(from.getDate() - 7);
   else if (range === '30d') from.setDate(from.getDate() - 30);
   else if (range === '90d') from.setDate(from.getDate() - 90);
   else { from.setFullYear(2020); } // 'all' — epoch start
-  return { from, to, vendorId };
+  return { from, to, vendorId, eventId };
+}
+
+export interface QrDetail {
+  qrHash: string;
+  qrType: string;
+  targetName: string;
+  scans: number;
+  actions: number;
+  lastActivity: string;
+}
+
+export interface ItemViewed {
+  itemId: number;
+  itemName: string;
+  views: number;
 }
 
 export interface DashboardSummary {
@@ -16,8 +31,11 @@ export interface DashboardSummary {
   totalActions: number;
   scansPerDay: Array<{ date: string; count: number }>;
   topQrHashes: Array<{ qrHash: string; count: number }>;
+  topQrDetails: QrDetail[];
   actionBreakdown: Array<{ actionType: string; count: number }>;
   deviceSplit: Array<{ deviceType: string; count: number }>;
+  lastActivity: string | null;
+  topItemsViewed: ItemViewed[];
 }
 
 /**
@@ -27,21 +45,24 @@ export interface DashboardSummary {
  */
 export const AnalyticsQueryService = {
 
-  /** Main dashboard summary — all vendors or scoped to one */
-  async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number): Promise<DashboardSummary> {
-    const f = buildDateRange(range, vendorId);
+  /** Main dashboard summary — all vendors, scoped to a vendor, or scoped to an event */
+  async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): Promise<DashboardSummary> {
+    const f = buildDateRange(range, vendorId, eventId);
 
-    const [totalScans, totalActions, scansPerDay, topQrHashes, actionBreakdown, deviceSplit] =
+    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
         AnalyticsRepo.scansPerDay(f),
         AnalyticsRepo.topQrHashes(f, 10),
+        AnalyticsRepo.topQrDetails(f, 10),
         AnalyticsRepo.actionBreakdown(f),
         AnalyticsRepo.deviceSplit(f),
+        AnalyticsRepo.lastActivity(f),
+        eventId ? AnalyticsRepo.topItemsViewed(f, 10) : Promise.resolve([]),
       ]);
 
-    return { totalScans, totalActions, scansPerDay, topQrHashes, actionBreakdown, deviceSplit };
+    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed };
   },
 
   /** Event-level analytics (scans + actions for a specific event_id) */

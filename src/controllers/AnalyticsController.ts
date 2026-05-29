@@ -18,12 +18,13 @@ function parseVendorId(raw: unknown): number | undefined {
 }
 
 export const AnalyticsController = {
-  /** GET /api/analytics/summary?range=30d&vendorId=1 */
+  /** GET /api/analytics/summary?range=30d&vendorId=1&eventId=2 */
   getSummary: async (req: Request, res: Response) => {
     try {
       const range = parseRange(req.query.range);
       const vendorId = parseVendorId(req.query.vendorId);
-      const summary = await AnalyticsQueryService.getSummary(range, vendorId);
+      const eventId = parseVendorId(req.query.eventId); // same int-parse logic
+      const summary = await AnalyticsQueryService.getSummary(range, vendorId, eventId);
       return res.json(summary);
     } catch (err) {
       console.error('[Analytics] getSummary error:', err);
