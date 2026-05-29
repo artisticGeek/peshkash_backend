@@ -11,11 +11,21 @@ export function buildDateRange(range: '7d' | '30d' | '90d' | 'all', vendorId?: n
   return { from, to, vendorId };
 }
 
+export interface QrDetail {
+  qrHash: string;
+  qrType: string;
+  targetName: string;
+  scans: number;
+  actions: number;
+  lastActivity: string;
+}
+
 export interface DashboardSummary {
   totalScans: number;
   totalActions: number;
   scansPerDay: Array<{ date: string; count: number }>;
   topQrHashes: Array<{ qrHash: string; count: number }>;
+  topQrDetails: QrDetail[];
   actionBreakdown: Array<{ actionType: string; count: number }>;
   deviceSplit: Array<{ deviceType: string; count: number }>;
 }
@@ -31,17 +41,18 @@ export const AnalyticsQueryService = {
   async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number): Promise<DashboardSummary> {
     const f = buildDateRange(range, vendorId);
 
-    const [totalScans, totalActions, scansPerDay, topQrHashes, actionBreakdown, deviceSplit] =
+    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
         AnalyticsRepo.scansPerDay(f),
         AnalyticsRepo.topQrHashes(f, 10),
+        AnalyticsRepo.topQrDetails(f, 10),
         AnalyticsRepo.actionBreakdown(f),
         AnalyticsRepo.deviceSplit(f),
       ]);
 
-    return { totalScans, totalActions, scansPerDay, topQrHashes, actionBreakdown, deviceSplit };
+    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit };
   },
 
   /** Event-level analytics (scans + actions for a specific event_id) */
