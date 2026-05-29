@@ -16,8 +16,10 @@ import Redis from 'ioredis';
 import { AnalyticsEvent } from '../models/analyticsEvent.model';
 import { AnalyticsRepo, InsertPayload } from '../repositories/analytics.repository';
 
-const QUEUE_KEY   = 'peshkash:analytics:queue';
-const BATCH_SIZE  = 500;  // rows per drain cycle — one bulkCreate call
+const QUEUE_KEY      = 'peshkash:analytics:queue';
+const BATCH_SIZE     = 500;     // rows per drain cycle — one bulkCreate call
+const MAX_QUEUE_SIZE = 200_000; // hard cap: ~100MB at 500 bytes/item
+                                // protects against drain loop outage + Upstash 256MB limit
 
 // ── Redis client (lazy — only created if REDIS_URL is configured) ────────────
 
@@ -62,10 +64,18 @@ export const AnalyticsQueue = {
    */
   enqueue(payload: InsertPayload): void {
     if (redis && redisReady) {
-      redis.lpush(QUEUE_KEY, JSON.stringify(payload)).catch(() => {
-        // Redis write failed mid-flight — fall back to direct insert
-        AnalyticsRepo.insert(payload).catch(() => {});
-      });
+      // Atomic pipeline: LPUSH + LTRIM in one round-trip.
+      // LTRIM keeps the list at MAX_QUEUE_SIZE — oldest items fall off the tail
+      // when the drain loop can't keep up (DB outage, etc.).
+      // This bounds memory to ~100MB regardless of Upstash eviction policy.
+      redis.pipeline()
+        .lpush(QUEUE_KEY, JSON.stringify(payload))
+        .ltrim(QUEUE_KEY, 0, MAX_QUEUE_SIZE - 1)
+        .exec()
+        .catch(() => {
+          // Pipeline failed — fall back to direct insert
+          AnalyticsRepo.insert(payload).catch(() => {});
+        });
     } else {
       // No Redis configured or Redis is down — insert directly
       AnalyticsRepo.insert(payload).catch(() => {});
