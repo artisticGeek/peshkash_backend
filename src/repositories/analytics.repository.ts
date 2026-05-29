@@ -240,6 +240,129 @@ export const AnalyticsRepo = {
     return rows.map(r => ({ itemId: Number(r.item_id), itemName: r.item_name, views: Number(r.views) }));
   },
 
+  /** Enriched top-items table: views, actions, vendor/event names, last activity */
+  topItemsDetailed: async (f: DateRangeFilter, limit = 15): Promise<Array<{
+    itemId: number; itemName: string; itemType: string;
+    vendorName: string; eventName: string;
+    views: number; actions: number; lastActivity: string;
+  }>> => {
+    const rows = await sequelize.query<{
+      item_id: string; item_name: string; item_type: string;
+      vendor_name: string; event_name: string;
+      views: string; actions: string; last_activity: string;
+    }>(
+      `SELECT
+         ae.item_id,
+         COALESCE(li.display_name, li.name) AS item_name,
+         COALESCE(li.type, 'item')           AS item_type,
+         COALESCE(v.display_name, '')         AS vendor_name,
+         COALESCE(e.display_name, '')         AS event_name,
+         COUNT(*) FILTER (WHERE ae.action_type IN ('item_expand','item_detail_view'))                                      AS views,
+         COUNT(*) FILTER (WHERE ae.action_type NOT IN ('item_expand','item_detail_view','menu_view','vendor_contact_view')) AS actions,
+         MAX(ae.created_at)                   AS last_activity
+       FROM analytics_event ae
+       LEFT JOIN line_item li ON li.id = ae.item_id
+       LEFT JOIN vendor    v  ON v.id  = ae.vendor_id
+       LEFT JOIN event     e  ON e.id  = ae.event_id
+       WHERE ae.item_id IS NOT NULL
+         AND ae.event_type = 'action'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND ae.vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY ae.item_id, li.display_name, li.name, li.type, v.display_name, e.display_name
+       ORDER BY views DESC
+       LIMIT :limit`,
+      {
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, limit },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows.map(r => ({
+      itemId: Number(r.item_id),
+      itemName: r.item_name,
+      itemType: r.item_type,
+      vendorName: r.vendor_name,
+      eventName: r.event_name,
+      views: Number(r.views),
+      actions: Number(r.actions),
+      lastActivity: r.last_activity,
+    }));
+  },
+
+  // ── Single-item analytics ─────────────────────────────────────────────────
+
+  /** Total views (item_expand + item_detail_view) for one item */
+  itemViews: async (itemId: number, f: DateRangeFilter): Promise<number> => {
+    const rows = await sequelize.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type IN ('item_expand','item_detail_view')
+         AND created_at BETWEEN :from AND :to`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return Number(rows[0]?.count ?? 0);
+  },
+
+  /** Customer actions (non-view) for one item */
+  itemActions: async (itemId: number, f: DateRangeFilter): Promise<number> => {
+    const rows = await sequelize.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type NOT IN ('item_expand','item_detail_view','menu_view','vendor_contact_view')
+         AND created_at BETWEEN :from AND :to`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return Number(rows[0]?.count ?? 0);
+  },
+
+  /** Views per day for one item */
+  itemViewsPerDay: async (itemId: number, f: DateRangeFilter): Promise<Array<{ date: string; count: number }>> => {
+    const rows = await sequelize.query<{ date: string; count: string }>(
+      `SELECT DATE(created_at) AS date, COUNT(*) AS count
+       FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type IN ('item_expand','item_detail_view')
+         AND created_at BETWEEN :from AND :to
+       GROUP BY DATE(created_at) ORDER BY date ASC`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ date: r.date, count: Number(r.count) }));
+  },
+
+  /** Action breakdown for one item */
+  itemActionBreakdown: async (itemId: number, f: DateRangeFilter): Promise<Array<{ actionType: string; count: number }>> => {
+    const rows = await sequelize.query<{ action_type: string; count: string }>(
+      `SELECT action_type, COUNT(*) AS count
+       FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type NOT IN ('item_expand','item_detail_view','menu_view','vendor_contact_view')
+         AND created_at BETWEEN :from AND :to
+       GROUP BY action_type ORDER BY count DESC`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ actionType: r.action_type, count: Number(r.count) }));
+  },
+
+  /** Last activity timestamp for one item */
+  itemLastActivity: async (itemId: number, f: DateRangeFilter): Promise<string | null> => {
+    const rows = await sequelize.query<{ last_activity: string | null }>(
+      `SELECT MAX(created_at) AS last_activity FROM analytics_event
+       WHERE item_id = :itemId AND created_at BETWEEN :from AND :to`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows[0]?.last_activity ?? null;
+  },
+
+  /** QR hashes seen in analytics events that had this item in context */
+  itemLinkedQrHashes: async (itemId: number): Promise<string[]> => {
+    const rows = await sequelize.query<{ qr_hash: string }>(
+      `SELECT DISTINCT qr_hash FROM analytics_event
+       WHERE item_id = :itemId AND qr_hash IS NOT NULL`,
+      { replacements: { itemId }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => r.qr_hash);
+  },
+
   /** Scans per event */
   scansByEvent: async (f: DateRangeFilter): Promise<Array<{ eventId: number; count: number }>> => {
     const rows = await sequelize.query<{ event_id: string; count: string }>(
