@@ -23,19 +23,21 @@ export interface DateRangeFilter {
   from: Date;
   to: Date;
   vendorId?: number;
+  eventId?: number;
 }
 
 export const AnalyticsRepo = {
   /** Append one event row — fast INSERT, called from fire-and-forget paths */
   insert: (payload: InsertPayload) => AnalyticsEvent.create(payload as any),
 
-  /** Total scans in a date range (optionally scoped to vendor) */
+  /** Total scans in a date range (optionally scoped to vendor or event) */
   totalScans: async (f: DateRangeFilter): Promise<number> => {
     return AnalyticsEvent.count({
       where: {
         eventType: 'qr_scan',
         createdAt: { [Op.between]: [f.from, f.to] },
         ...(f.vendorId ? { vendorId: f.vendorId } : {}),
+        ...(f.eventId  ? { eventId:  f.eventId  } : {}),
       },
     });
   },
@@ -47,6 +49,7 @@ export const AnalyticsRepo = {
         eventType: 'action',
         createdAt: { [Op.between]: [f.from, f.to] },
         ...(f.vendorId ? { vendorId: f.vendorId } : {}),
+        ...(f.eventId  ? { eventId:  f.eventId  } : {}),
       },
     });
   },
@@ -59,10 +62,11 @@ export const AnalyticsRepo = {
        WHERE event_type = 'qr_scan'
          AND created_at BETWEEN :from AND :to
          ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
        GROUP BY DATE(created_at)
        ORDER BY DATE(created_at) ASC`,
       {
-        replacements: { from: f.from, to: f.to, vendorId: f.vendorId },
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
       }
     );
@@ -78,11 +82,12 @@ export const AnalyticsRepo = {
          AND qr_hash IS NOT NULL
          AND created_at BETWEEN :from AND :to
          ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
        GROUP BY qr_hash
        ORDER BY count DESC
        LIMIT :limit`,
       {
-        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, limit },
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, limit },
         type: QueryTypes.SELECT,
       }
     );
@@ -119,6 +124,7 @@ export const AnalyticsRepo = {
            AND ae.qr_hash IS NOT NULL
            AND ae.created_at BETWEEN :from AND :to
            ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+           ${f.eventId  ? 'AND (ae.event_id  = :eventId  OR q.event_id  = :eventId )'  : ''}
          GROUP BY ae.qr_hash, q.type, q.vendor_id, q.event_id, e.display_name, v.display_name
          ORDER BY scans DESC
          LIMIT :limit
@@ -142,7 +148,7 @@ export const AnalyticsRepo = {
        FROM top_qr t
        LEFT JOIN action_counts a ON a.qr_hash = t.qr_hash`,
       {
-        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, limit },
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, limit },
         type: QueryTypes.SELECT,
       }
     );
@@ -165,10 +171,11 @@ export const AnalyticsRepo = {
          AND action_type IS NOT NULL
          AND created_at BETWEEN :from AND :to
          ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
        GROUP BY action_type
        ORDER BY count DESC`,
       {
-        replacements: { from: f.from, to: f.to, vendorId: f.vendorId },
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
       }
     );
@@ -183,14 +190,54 @@ export const AnalyticsRepo = {
        WHERE event_type = 'qr_scan'
          AND created_at BETWEEN :from AND :to
          ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
        GROUP BY COALESCE(device_type, 'unknown')
        ORDER BY count DESC`,
       {
-        replacements: { from: f.from, to: f.to, vendorId: f.vendorId },
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
       }
     );
     return rows.map(r => ({ deviceType: r.device_type, count: Number(r.count) }));
+  },
+
+  /** Timestamp of the most recent analytics event in the scope */
+  lastActivity: async (f: DateRangeFilter): Promise<string | null> => {
+    const rows = await sequelize.query<{ last_activity: string | null }>(
+      `SELECT MAX(created_at) AS last_activity
+       FROM analytics_event
+       WHERE created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}`,
+      {
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows[0]?.last_activity ?? null;
+  },
+
+  /** Top viewed line items (item_expand / item_detail_view actions with item_id) */
+  topItemsViewed: async (f: DateRangeFilter, limit = 10): Promise<Array<{ itemId: number; itemName: string; views: number }>> => {
+    const rows = await sequelize.query<{ item_id: string; item_name: string; views: string }>(
+      `SELECT ae.item_id, COALESCE(li.display_name, li.name, ae.item_id::text) AS item_name, COUNT(*) AS views
+       FROM analytics_event ae
+       LEFT JOIN line_item li ON li.id = ae.item_id
+       WHERE ae.event_type = 'action'
+         AND ae.action_type IN ('item_expand', 'item_detail_view')
+         AND ae.item_id IS NOT NULL
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND ae.vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY ae.item_id, li.display_name, li.name
+       ORDER BY views DESC
+       LIMIT :limit`,
+      {
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, limit },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows.map(r => ({ itemId: Number(r.item_id), itemName: r.item_name, views: Number(r.views) }));
   },
 
   /** Scans per event */
