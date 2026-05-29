@@ -6,6 +6,8 @@ import onboardingRouter from './routes/onboardingRouter';
 import adminRouter from './routes/adminRouter';
 import analyticsRouter from './routes/analyticsRouter';
 import { sequelize } from './config/sequelize';
+import { startDrainLoop } from './workers/analyticsWorker';
+import { AnalyticsQueue } from './services/AnalyticsQueue';
 
 dotenv.config();
 
@@ -23,14 +25,24 @@ app.get('/', (_req, res) => {
   res.send('✅ Peshkash backend is alive!');
 });
 
+app.get('/health', async (_req, res) => {
+  const queueDepth = await AnalyticsQueue.depth();
+  res.json({
+    status: 'ok',
+    redis: AnalyticsQueue.isRedisConnected ? 'connected' : 'fallback-mode',
+    analyticsQueueDepth: queueDepth,
+  });
+});
+
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Connect to DB
+// Connect to DB then start analytics drain loop
 sequelize.authenticate()
   .then(() => {
     console.log('✅ Connected to PostgreSQL via Sequelize');
+    startDrainLoop();
   })
   .catch((err) => {
     console.error('❌ Failed to connect to the database:', err);

@@ -1,5 +1,6 @@
 import { Request } from 'express';
-import { AnalyticsRepo, InsertPayload } from '../repositories/analytics.repository';
+import { InsertPayload } from '../repositories/analytics.repository';
+import { AnalyticsQueue } from './AnalyticsQueue';
 
 /** Lightweight UA parser — no third-party dependency */
 function parseDeviceType(ua: string): 'mobile' | 'desktop' | 'tablet' | 'unknown' {
@@ -32,56 +33,49 @@ export interface ActionPayload {
 }
 
 /**
- * AnalyticsRecorder — Single Responsibility: write analytics events to DB.
+ * AnalyticsRecorder — Single Responsibility: build the event row and hand it
+ * to AnalyticsQueue. Never touches the DB directly.
  *
- * All public methods are fire-and-forget: they return void and swallow
- * errors so that analytics failures NEVER affect the user-facing response.
+ * Write path:  Recorder → Queue.enqueue() → Redis LPUSH (~0.1ms)
+ * Drain path:  Worker drain loop → bulkCreate every 500ms
  */
 export const AnalyticsRecorder = {
-  /**
-   * Record a QR scan event.  Call this from QrCodeController AFTER the
-   * redirect response has been sent, or in a non-blocking Promise chain.
-   */
   recordScan(payload: ScanPayload): void {
-    const ua = payload.req.headers['user-agent'] ?? '';
+    const ua       = payload.req.headers['user-agent']  ?? '';
     const referrer = payload.req.headers['referer'] ?? payload.req.headers['referrer'] ?? '';
 
     const row: InsertPayload = {
-      eventType: 'qr_scan',
-      qrHash: payload.qrHash,
-      qrType: payload.qrType,
-      qrStatus: payload.qrStatus,
-      resolved: payload.resolved,
+      eventType:   'qr_scan',
+      qrHash:      payload.qrHash,
+      qrType:      payload.qrType,
+      qrStatus:    payload.qrStatus,
+      resolved:    payload.resolved,
       resolvedUrl: payload.resolvedUrl,
-      vendorId: payload.vendorId,
-      eventId: payload.eventId,
-      deviceType: parseDeviceType(ua as string),
-      userAgent: (ua as string).slice(0, 500),
-      referrer: (referrer as string).slice(0, 500),
+      vendorId:    payload.vendorId,
+      eventId:     payload.eventId,
+      deviceType:  parseDeviceType(ua as string),
+      userAgent:   (ua as string).slice(0, 500),
+      referrer:    (referrer as string).slice(0, 500),
     };
 
-    AnalyticsRepo.insert(row).catch(() => {/* silent — analytics must never throw */});
+    AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
   },
 
-  /**
-   * Record a user action (called from the /api/analytics/action endpoint).
-   * The frontend composable fires this in the background.
-   */
   recordAction(payload: ActionPayload, req: Request): void {
     const ua = req.headers['user-agent'] ?? '';
 
     const row: InsertPayload = {
-      eventType: 'action',
+      eventType:  'action',
       actionType: payload.actionType,
-      vendorId: payload.vendorId,
-      eventId: payload.eventId,
-      menuId: payload.menuId,
-      itemId: payload.itemId,
-      qrHash: payload.qrHash,
+      vendorId:   payload.vendorId,
+      eventId:    payload.eventId,
+      menuId:     payload.menuId,
+      itemId:     payload.itemId,
+      qrHash:     payload.qrHash,
       deviceType: parseDeviceType(ua as string),
-      userAgent: (ua as string).slice(0, 500),
+      userAgent:  (ua as string).slice(0, 500),
     };
 
-    AnalyticsRepo.insert(row).catch(() => {/* silent */});
+    AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
   },
 };
