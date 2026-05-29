@@ -21,6 +21,10 @@ export class QrLinkMapping extends Model<QrLinkMapping> {
   @Column(DataType.TEXT)
   url?: string;
 
+  // 'static' = redirect to stored url | 'event' = dynamically resolve current menu | 'vendor' = future
+  @Column({ type: DataType.STRING(20), defaultValue: 'static' })
+  type?: string;
+
   @Column({ field: 'updated_at', type: DataType.DATE })
   updatedAt?: Date;
 

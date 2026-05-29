@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { EventMenuMappingService } from '../services/EventMenuMappingService';
 import { MapperUtil } from '../utils/MapperUtil';
 import { QrLinkMappingService } from '../services/QrLinkMappingService';
+import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
+import { QrLinkMappingRepo } from '../repositories/qrLinkMapping.repository';
 
 export const QrMappingController = {
   getMenuByEventAndMenuName: async (req: Request, res: Response) => {
@@ -60,10 +62,31 @@ export const QrMappingController = {
       const redirectionUrl = await QrLinkMappingService.getHashRedirectionUrl(qrHash);
 
       if (!redirectionUrl) {
+        // Record a not-found scan for observability
+        AnalyticsRecorder.recordScan({
+          qrHash,
+          qrStatus: 'not_found',
+          resolved: false,
+          req,
+        });
         return res.status(404).json({ error: 'QR code not found' });
       }
 
       console.log(redirectionUrl.redirectionUrl);
+
+      // Non-blocking scan recording — MUST NOT delay or break the response
+      QrLinkMappingRepo.getByHash(qrHash).then(mapping => {
+        AnalyticsRecorder.recordScan({
+          qrHash,
+          qrType: mapping?.type,
+          qrStatus: mapping?.isActive ? 'active' : 'inactive',
+          resolved: true,
+          resolvedUrl: redirectionUrl.redirectionUrl,
+          vendorId: mapping?.vendorId,
+          eventId: mapping?.eventId,
+          req,
+        });
+      }).catch(() => {/* silent — analytics never blocks */});
 
       return res.send(redirectionUrl);
     } catch (error) {
