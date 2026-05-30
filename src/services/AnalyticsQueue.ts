@@ -33,7 +33,8 @@ if (process.env.REDIS_URL) {
     enableReadyCheck: true,
     enableOfflineQueue: false,   // don't queue commands while disconnected
     lazyConnect: true,
-    tls: process.env.REDIS_URL.startsWith('rediss://') ? {} : undefined,
+    // ioredis v5 derives TLS (incl. SNI servername) from the rediss:// URL automatically.
+    // Do NOT override with tls:{} here — that clears the servername and breaks Upstash.
   });
 
   redis.on('ready', () => {
