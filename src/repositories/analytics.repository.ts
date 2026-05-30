@@ -17,6 +17,7 @@ export interface InsertPayload {
   deviceType?: string;
   userAgent?: string;
   referrer?: string;
+  pageUrl?: string;
 }
 
 export interface DateRangeFilter {

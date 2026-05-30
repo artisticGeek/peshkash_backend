@@ -30,20 +30,23 @@ let warnedOnce = false;
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: 1,     // fail fast — analytics must never block the app
-    enableReadyCheck: true,
+    enableReadyCheck: false,     // Upstash serverless: skip INFO ready check (can stall on cold starts)
+    enableOfflineQueue: false,   // don't queue commands while disconnected
     lazyConnect: true,
-    tls: process.env.REDIS_URL.startsWith('rediss://') ? {} : undefined,
+    // ioredis v5 derives TLS (incl. SNI servername) from the rediss:// URL automatically.
+    // Do NOT override with tls:{} here — that clears the servername and breaks Upstash.
   });
 
   redis.on('ready', () => {
     redisReady = true;
-    console.log('✅ [AnalyticsQueue] Redis connected');
+    warnedOnce = false; // reset so reconnect is logged
+    console.log('✅ [AnalyticsQueue] Redis connected — buffered writes active');
   });
 
-  redis.on('error', (err) => {
+  redis.on('error', () => {
     redisReady = false;
     if (!warnedOnce) {
-      console.warn('[AnalyticsQueue] Redis error — falling back to direct inserts:', err.message);
+      console.warn('[AnalyticsQueue] Redis unavailable — falling back to direct DB inserts (analytics still recording)');
       warnedOnce = true;
     }
   });

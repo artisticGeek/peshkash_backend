@@ -38,10 +38,14 @@ app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Connect to DB then start analytics drain loop
+// Connect to DB then run lightweight column migrations and start drain loop
 sequelize.authenticate()
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to PostgreSQL via Sequelize');
+    // Idempotent column additions — safe to run on every boot
+    await sequelize.query(
+      `ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS page_url TEXT`
+    ).catch(() => {/* table may not exist yet on first deploy */});
     startDrainLoop();
   })
   .catch((err) => {
