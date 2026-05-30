@@ -5,6 +5,7 @@ const analyticsRouter = Router();
 
 // Read endpoints (admin dashboard)
 analyticsRouter.get('/summary', AnalyticsController.getSummary);
+analyticsRouter.get('/events/:eventId/items', AnalyticsController.getEventItemsBreakdown);
 analyticsRouter.get('/events/:eventId', AnalyticsController.getEventAnalytics);
 analyticsRouter.get('/items', AnalyticsController.getTopItems);
 analyticsRouter.get('/items/:itemId', AnalyticsController.getItemAnalytics);

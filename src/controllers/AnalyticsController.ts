@@ -73,6 +73,20 @@ export const AnalyticsController = {
     }
   },
 
+  /** GET /api/analytics/events/:eventId/items?range=30d — full per-item breakdown (Excel view) */
+  getEventItemsBreakdown: async (req: Request, res: Response) => {
+    try {
+      const eventId = Number(req.params.eventId);
+      if (isNaN(eventId) || eventId <= 0) return res.status(400).json({ error: 'Invalid eventId' });
+      const range = parseRange(req.query.range);
+      const data = await AnalyticsQueryService.getEventItemsBreakdown(eventId, range);
+      return res.json(data);
+    } catch (err) {
+      console.error('[Analytics] getEventItemsBreakdown error:', err);
+      return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
   /** GET /api/analytics/events-leaderboard?range=30d&vendorId=1 */
   getEventLeaderboard: async (req: Request, res: Response) => {
     try {

@@ -128,6 +128,12 @@ export const AnalyticsQueryService = {
     return { totalViews, totalActions, viewsPerDay, actionBreakdown, lastActivity, linkedQrHashes };
   },
 
+  /** Per-item action breakdown for one event — powers the "Excel table" in the drill-down drawer */
+  async getEventItemsBreakdown(eventId: number, range: '7d' | '30d' | '90d' | 'all') {
+    const f = buildDateRange(range);
+    return AnalyticsRepo.itemsBreakdownByEvent(eventId, f);
+  },
+
   /** Per-event scan leaderboard */
   async getEventLeaderboard(range: '7d' | '30d' | '90d' | 'all', vendorId?: number) {
     const f = buildDateRange(range, vendorId);
