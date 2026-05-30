@@ -30,7 +30,7 @@ let warnedOnce = false;
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: 1,     // fail fast — analytics must never block the app
-    enableReadyCheck: true,
+    enableReadyCheck: false,     // Upstash serverless: skip INFO ready check (can stall on cold starts)
     enableOfflineQueue: false,   // don't queue commands while disconnected
     lazyConnect: true,
     // ioredis v5 derives TLS (incl. SNI servername) from the rediss:// URL automatically.
