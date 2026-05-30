@@ -57,7 +57,7 @@ export const OtpService = {
       inMemory.set(phone, { record, expiresAt: Date.now() + OTP_TTL * 1000 });
     }
 
-    await SmsService.send(phone, `Your Peshkash OTP is ${otp}. Valid for 10 minutes. Do not share.`);
+    await SmsService.send(phone, otp);
   },
 
   /**
