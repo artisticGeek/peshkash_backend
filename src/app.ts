@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import router from './routes/router';
 import onboardingRouter from './routes/onboardingRouter';
 import adminRouter from './routes/adminRouter';
@@ -10,8 +9,6 @@ import { authMiddleware } from './middleware/authMiddleware';
 import { sequelize } from './config/sequelize';
 import { startDrainLoop } from './workers/analyticsWorker';
 import { AnalyticsQueue } from './services/AnalyticsQueue';
-
-dotenv.config();
 
 const app = express();
 
@@ -59,6 +56,22 @@ sequelize.authenticate()
     await sequelize.query(
       `ALTER TABLE vendor ADD COLUMN IF NOT EXISTS require_login BOOLEAN NOT NULL DEFAULT false`
     ).catch(() => {});
+    // Admin phone table — source of truth for who is an admin
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS admin_user (
+        id         SERIAL PRIMARY KEY,
+        phone      VARCHAR(20) UNIQUE NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(() => {});
+    // One-time seed: if INITIAL_ADMIN_PHONE is set, insert it (idempotent)
+    const seedPhone = process.env.INITIAL_ADMIN_PHONE;
+    if (seedPhone) {
+      await sequelize.query(
+        `INSERT INTO admin_user (phone) VALUES (:phone) ON CONFLICT (phone) DO NOTHING`,
+        { replacements: { phone: seedPhone } }
+      ).catch(() => {});
+    }
     startDrainLoop();
   })
   .catch((err) => {

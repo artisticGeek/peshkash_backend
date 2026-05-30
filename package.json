@@ -4,9 +4,9 @@
   "description": "QR-based digital menu platform for events and weddings",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "ts-node-dev -r dotenv/config --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node -r dotenv/config dist/server.js"
   },
   "author": "",
   "license": "ISC",

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import { QueryTypes } from 'sequelize';
 import { OtpService } from '../services/OtpService';
 import { AuthService } from '../services/AuthService';
+import { sequelize } from '../config/sequelize';
 
 /** Normalise phone: strip spaces, ensure +91 prefix for Indian numbers */
 function normalisePhone(raw: string): string | null {
@@ -17,7 +19,6 @@ export const AuthController = {
   /**
    * POST /api/auth/send-otp
    * Body: { phone: string }
-   * Rate-limit is handled at the OtpService level (Redis TTL).
    */
   sendOtp: async (req: Request, res: Response) => {
     const phone = normalisePhone(req.body?.phone ?? '');
@@ -37,7 +38,7 @@ export const AuthController = {
   /**
    * POST /api/auth/verify-otp
    * Body: { phone: string, otp: string }
-   * Returns: { token, role, vendorId? }
+   * Returns: { token, role, vendorId?, phone }
    */
   verifyOtp: async (req: Request, res: Response) => {
     const phone = normalisePhone(req.body?.phone ?? '');
@@ -70,8 +71,7 @@ export const AuthController = {
 
   /**
    * GET /api/auth/me
-   * Reads the Bearer token from Authorization header.
-   * Returns current identity without hitting DB.
+   * Returns current identity from Bearer token without hitting DB.
    */
   me: async (req: Request, res: Response) => {
     const header = req.headers.authorization ?? '';
@@ -82,5 +82,67 @@ export const AuthController = {
     if (!payload) return res.status(401).json({ error: 'Token invalid or expired.' });
 
     return res.json(payload);
+  },
+
+  // ── Admin user management ──────────────────────────────────────────────────
+
+  /**
+   * GET /api/admin/admin-users
+   * Returns all admin phones. Requires admin role.
+   */
+  listAdminUsers: async (_req: Request, res: Response) => {
+    try {
+      const rows = await sequelize.query<{ phone: string; created_at: string }>(
+        'SELECT phone, created_at FROM admin_user ORDER BY created_at',
+        { type: QueryTypes.SELECT }
+      );
+      return res.json(rows);
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Could not list admin users.' });
+    }
+  },
+
+  /**
+   * POST /api/admin/admin-users
+   * Body: { phone: string }
+   * Adds a phone as admin. Requires admin role.
+   */
+  addAdminUser: async (req: Request, res: Response) => {
+    const phone = normalisePhone(req.body?.phone ?? '');
+    if (!phone) return res.status(400).json({ error: 'Invalid phone number.' });
+
+    try {
+      await sequelize.query(
+        'INSERT INTO admin_user (phone) VALUES (:phone) ON CONFLICT (phone) DO NOTHING',
+        { replacements: { phone } }
+      );
+      return res.json({ ok: true, phone });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Could not add admin user.' });
+    }
+  },
+
+  /**
+   * DELETE /api/admin/admin-users/:phone
+   * Removes an admin phone. Requires admin role.
+   * Safety: cannot remove yourself.
+   */
+  removeAdminUser: async (req: Request, res: Response) => {
+    const phone = decodeURIComponent(req.params.phone);
+    const self  = (req as any).user?.phone;
+
+    if (phone === self) {
+      return res.status(400).json({ error: 'Cannot remove your own admin access.' });
+    }
+
+    try {
+      await sequelize.query(
+        'DELETE FROM admin_user WHERE phone = :phone',
+        { replacements: { phone } }
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Could not remove admin user.' });
+    }
   },
 };
