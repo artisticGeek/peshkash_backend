@@ -54,7 +54,9 @@ async function sendVia2Factor(phone: string, otp: string): Promise<void> {
   const apiKey = process.env.TWOFACTOR_API_KEY;
   if (!apiKey) { mockLog(phone, otp, '2factor'); return; }
 
-  const path = `/API/V1/${apiKey}/SMS/${to10Digit(phone)}/${otp}/AUTOGEN`;
+  // No /AUTOGEN suffix — that flag tells 2factor to generate its own OTP (triggers voice fallback).
+  // We pass our own OTP, so just use the plain SMS endpoint.
+  const path = `/API/V1/${apiKey}/SMS/${to10Digit(phone)}/${otp}`;
   await httpGet('2factor.in', path, '2Factor');
 }
 

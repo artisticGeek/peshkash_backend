@@ -100,6 +100,18 @@ function isStatus(value: unknown) {
   return value === 'draft' || value === 'active' || value === 'inactive';
 }
 
+/** Normalise a login phone to E.164 (+91XXXXXXXXXX) or null if blank. */
+function normalizeLoginPhone(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('+')) return trimmed;
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return trimmed;
+}
+
 function cleanVendor(vendor: Vendor) {
   return {
     id: vendor.id,
@@ -110,6 +122,8 @@ function cleanVendor(vendor: Vendor) {
     address: vendor.address,
     hasContactPage: vendor.hasContactPage,
     logoUrl: vendor.logoUrl ?? null,
+    loginPhone: vendor.phone ?? null,
+    requireLogin: vendor.requireLogin,
     createdAt: vendor.createdAt,
   };
 }
@@ -245,6 +259,8 @@ export const AdminService = {
       address: body.address?.trim() || null,
       hasContactPage: Boolean(body.hasContactPage),
       logoUrl: body.logoUrl?.trim() || null,
+      phone: normalizeLoginPhone(body.loginPhone),
+      requireLogin: Boolean(body.requireLogin),
     } as any);
     return cleanVendor(vendor);
   },
@@ -265,6 +281,8 @@ export const AdminService = {
       address: body.address?.trim() || null,
       hasContactPage: body.hasContactPage !== undefined ? Boolean(body.hasContactPage) : vendor.hasContactPage,
       logoUrl: body.logoUrl !== undefined ? (body.logoUrl?.trim() || null) : vendor.logoUrl,
+      phone: ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone) as string | undefined,
+      requireLogin: body.requireLogin !== undefined ? Boolean(body.requireLogin) : vendor.requireLogin,
     });
     return cleanVendor(vendor);
   },
