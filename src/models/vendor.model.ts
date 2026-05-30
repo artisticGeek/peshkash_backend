@@ -30,6 +30,18 @@ export class Vendor extends Model<Vendor> {
   @Column({ field: 'logo_url', type: DataType.TEXT, allowNull: true })
   logoUrl?: string;
 
+  /** Phone number used for OTP login. Set by admin during vendor onboarding. */
+  @Column({ field: 'phone', type: DataType.STRING(20), allowNull: true, unique: true })
+  phone?: string;
+
+  /**
+   * When true, public-facing pages for this vendor require a phone OTP login
+   * before content is shown. Contact cards are always public regardless.
+   * Default: false (open access).
+   */
+  @Column({ field: 'require_login', type: DataType.BOOLEAN, defaultValue: false })
+  requireLogin!: boolean;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;
