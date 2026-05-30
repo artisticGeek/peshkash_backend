@@ -46,6 +46,20 @@ export const AnalyticsController = {
     }
   },
 
+  /** GET /api/analytics/items/:itemId?range=30d */
+  getItemAnalytics: async (req: Request, res: Response) => {
+    try {
+      const itemId = Number(req.params.itemId);
+      if (isNaN(itemId) || itemId <= 0) return res.status(400).json({ error: 'Invalid itemId' });
+      const range = parseRange(req.query.range);
+      const data = await AnalyticsQueryService.getItemAnalytics(itemId, range);
+      return res.json(data);
+    } catch (err) {
+      console.error('[Analytics] getItemAnalytics error:', err);
+      return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
   /** GET /api/analytics/items?range=30d&vendorId=1 */
   getTopItems: async (req: Request, res: Response) => {
     try {

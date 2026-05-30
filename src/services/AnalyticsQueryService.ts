@@ -26,6 +26,17 @@ export interface ItemViewed {
   views: number;
 }
 
+export interface ItemDetail {
+  itemId: number;
+  itemName: string;
+  itemType: string;
+  vendorName: string;
+  eventName: string;
+  views: number;
+  actions: number;
+  lastActivity: string;
+}
+
 export interface DashboardSummary {
   totalScans: number;
   totalActions: number;
@@ -36,6 +47,16 @@ export interface DashboardSummary {
   deviceSplit: Array<{ deviceType: string; count: number }>;
   lastActivity: string | null;
   topItemsViewed: ItemViewed[];
+  topItemsDetailed: ItemDetail[];
+}
+
+export interface ItemAnalytics {
+  totalViews: number;
+  totalActions: number;
+  viewsPerDay: Array<{ date: string; count: number }>;
+  actionBreakdown: Array<{ actionType: string; count: number }>;
+  lastActivity: string | null;
+  linkedQrHashes: string[];
 }
 
 /**
@@ -49,7 +70,7 @@ export const AnalyticsQueryService = {
   async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): Promise<DashboardSummary> {
     const f = buildDateRange(range, vendorId, eventId);
 
-    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed] =
+    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
@@ -60,9 +81,10 @@ export const AnalyticsQueryService = {
         AnalyticsRepo.deviceSplit(f),
         AnalyticsRepo.lastActivity(f),
         eventId ? AnalyticsRepo.topItemsViewed(f, 10) : Promise.resolve([]),
+        AnalyticsRepo.topItemsDetailed(f, 15),
       ]);
 
-    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed };
+    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed };
   },
 
   /** Event-level analytics (scans + actions for a specific event_id) */
@@ -89,6 +111,21 @@ export const AnalyticsQueryService = {
   async getTopItems(range: '7d' | '30d' | '90d' | 'all', vendorId?: number) {
     const f = buildDateRange(range, vendorId);
     return AnalyticsRepo.scansByItem(f);
+  },
+
+  /** Full analytics for a single item/product */
+  async getItemAnalytics(itemId: number, range: '7d' | '30d' | '90d' | 'all'): Promise<ItemAnalytics> {
+    const f = buildDateRange(range);
+    const [totalViews, totalActions, viewsPerDay, actionBreakdown, lastActivity, linkedQrHashes] =
+      await Promise.all([
+        AnalyticsRepo.itemViews(itemId, f),
+        AnalyticsRepo.itemActions(itemId, f),
+        AnalyticsRepo.itemViewsPerDay(itemId, f),
+        AnalyticsRepo.itemActionBreakdown(itemId, f),
+        AnalyticsRepo.itemLastActivity(itemId, f),
+        AnalyticsRepo.itemLinkedQrHashes(itemId),
+      ]);
+    return { totalViews, totalActions, viewsPerDay, actionBreakdown, lastActivity, linkedQrHashes };
   },
 
   /** Per-event scan leaderboard */
