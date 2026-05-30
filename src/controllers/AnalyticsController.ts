@@ -92,7 +92,7 @@ export const AnalyticsController = {
    * Called by the frontend useAnalytics composable — always responds 204.
    */
   recordAction: async (req: Request, res: Response) => {
-    const { actionType, vendorId, eventId, menuId, itemId, qrHash } = req.body ?? {};
+    const { actionType, vendorId, eventId, menuId, itemId, qrHash, pageUrl } = req.body ?? {};
     if (!actionType) return res.status(204).end();
 
     AnalyticsRecorder.recordAction(
@@ -103,6 +103,7 @@ export const AnalyticsController = {
         menuId: menuId ? Number(menuId) : undefined,
         itemId: itemId ? Number(itemId) : undefined,
         qrHash: qrHash ? String(qrHash) : undefined,
+        pageUrl: pageUrl ? String(pageUrl).slice(0, 2000) : undefined,
       },
       req
     );

@@ -1,4 +1,5 @@
 import { Op, QueryTypes, literal } from 'sequelize';
+import { sequelize } from '../config/sequelize';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { LineItem } from '../models/lineItem.model';
@@ -471,7 +472,29 @@ export const AdminService = {
   listQrMappings: async (ctx: UrlContext, vendorId?: number) => {
     const where = vendorId ? { vendorId } : {};
     const mappings = await QrLinkMapping.findAll({ where: where as any, order: [['createdAt', 'DESC']] });
-    return mappings.map((mapping) => withUrls(mapping, ctx));
+    if (!mappings.length) return [];
+
+    // Enrich with real scan counts from analytics_event (usageCount column is never incremented)
+    const hashes = mappings.map(m => m.qrHash).filter(Boolean) as string[];
+    let scanCounts: Record<string, number> = {};
+    if (hashes.length) {
+      try {
+        const rows = await sequelize.query<{ qr_hash: string; cnt: string }>(
+          `SELECT qr_hash, COUNT(*) AS cnt FROM analytics_event
+           WHERE event_type = 'qr_scan' AND qr_hash IN (:hashes)
+           GROUP BY qr_hash`,
+          { replacements: { hashes }, type: QueryTypes.SELECT }
+        );
+        rows.forEach(r => { scanCounts[r.qr_hash] = Number(r.cnt); });
+      } catch {
+        // analytics table may not exist yet — fall back to usageCount
+      }
+    }
+
+    return mappings.map(m => ({
+      ...withUrls(m, ctx),
+      usageCount: scanCounts[m.qrHash ?? ''] ?? m.usageCount ?? 0,
+    }));
   },
 
   upsertQrMapping: async (body: any, ctx: UrlContext) => {
