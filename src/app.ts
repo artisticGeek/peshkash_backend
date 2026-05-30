@@ -72,6 +72,19 @@ sequelize.authenticate()
         { replacements: { phone: seedPhone } }
       ).catch(() => {});
     }
+    // App config table — runtime settings editable directly in the DB
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS app_config (
+        key        VARCHAR(100) PRIMARY KEY,
+        value      TEXT        NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(() => {});
+    // Default: use 2Factor.in as SMS provider
+    await sequelize.query(`
+      INSERT INTO app_config (key, value) VALUES ('sms_provider', '2factor')
+      ON CONFLICT (key) DO NOTHING
+    `).catch(() => {});
     startDrainLoop();
   })
   .catch((err) => {
