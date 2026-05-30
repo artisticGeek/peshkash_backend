@@ -7,6 +7,7 @@ const analyticsRouter = Router();
 analyticsRouter.get('/summary', AnalyticsController.getSummary);
 analyticsRouter.get('/events/:eventId', AnalyticsController.getEventAnalytics);
 analyticsRouter.get('/items', AnalyticsController.getTopItems);
+analyticsRouter.get('/items/:itemId', AnalyticsController.getItemAnalytics);
 analyticsRouter.get('/events-leaderboard', AnalyticsController.getEventLeaderboard);
 
 // Write endpoint (frontend action tracking, fire-and-forget)
