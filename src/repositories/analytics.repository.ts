@@ -364,6 +364,66 @@ export const AnalyticsRepo = {
     return rows.map(r => r.qr_hash);
   },
 
+  /**
+   * Per-item action breakdown for a specific event — the "Excel view".
+   * Returns every item that had any action in the period, with column-per-action-type counts.
+   * No LIMIT — callers get the full set.
+   */
+  itemsBreakdownByEvent: async (eventId: number, f: DateRangeFilter): Promise<Array<{
+    itemId: number; itemName: string; itemType: string;
+    expands: number; detailViews: number;
+    whatsappClicks: number; shareClicks: number;
+    directions: number; saves: number; calls: number;
+    totalActions: number; lastActivity: string | null;
+  }>> => {
+    const rows = await sequelize.query<{
+      item_id: string; item_name: string; item_type: string;
+      expands: string; detail_views: string; whatsapp_clicks: string;
+      share_clicks: string; directions: string; saves: string; calls: string;
+      total_actions: string; last_activity: string | null;
+    }>(
+      `SELECT
+         ae.item_id,
+         COALESCE(li.display_name, li.name, ae.item_id::text)       AS item_name,
+         COALESCE(li.type, 'item')                                   AS item_type,
+         COUNT(*) FILTER (WHERE ae.action_type = 'item_expand')      AS expands,
+         COUNT(*) FILTER (WHERE ae.action_type = 'item_detail_view') AS detail_views,
+         COUNT(*) FILTER (WHERE ae.action_type = 'whatsapp_click')   AS whatsapp_clicks,
+         COUNT(*) FILTER (WHERE ae.action_type = 'share_click')      AS share_clicks,
+         COUNT(*) FILTER (WHERE ae.action_type = 'directions_click') AS directions,
+         COUNT(*) FILTER (WHERE ae.action_type = 'save_contact')     AS saves,
+         COUNT(*) FILTER (WHERE ae.action_type = 'call_click')       AS calls,
+         COUNT(*)                                                     AS total_actions,
+         MAX(ae.created_at)                                          AS last_activity
+       FROM analytics_event ae
+       LEFT JOIN line_item li ON li.id = ae.item_id
+       WHERE ae.item_id IS NOT NULL
+         AND ae.event_type = 'action'
+         AND ae.event_id = :eventId
+         AND ae.created_at BETWEEN :from AND :to
+       GROUP BY ae.item_id, li.display_name, li.name, li.type
+       ORDER BY total_actions DESC`,
+      {
+        replacements: { eventId, from: f.from, to: f.to },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows.map(r => ({
+      itemId:        Number(r.item_id),
+      itemName:      r.item_name,
+      itemType:      r.item_type,
+      expands:       Number(r.expands),
+      detailViews:   Number(r.detail_views),
+      whatsappClicks: Number(r.whatsapp_clicks),
+      shareClicks:   Number(r.share_clicks),
+      directions:    Number(r.directions),
+      saves:         Number(r.saves),
+      calls:         Number(r.calls),
+      totalActions:  Number(r.total_actions),
+      lastActivity:  r.last_activity ?? null,
+    }));
+  },
+
   /** Scans per event */
   scansByEvent: async (f: DateRangeFilter): Promise<Array<{ eventId: number; count: number }>> => {
     const rows = await sequelize.query<{ event_id: string; count: string }>(
