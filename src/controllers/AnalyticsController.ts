@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AnalyticsQueryService } from '../services/AnalyticsQueryService';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
+import { AnalyticsRepo } from '../repositories/analytics.repository';
 
 type RangeParam = '7d' | '30d' | '90d' | 'all';
 const VALID_RANGES: RangeParam[] = ['7d', '30d', '90d', 'all'];
@@ -97,6 +98,39 @@ export const AnalyticsController = {
     } catch (err) {
       console.error('[Analytics] getEventLeaderboard error:', err);
       return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
+  /**
+   * GET /api/analytics/export/vendor/:vendorId?from=YYYY-MM-DD&to=YYYY-MM-DD
+   *
+   * Returns a JSON array of raw, enriched analytics events for the given vendor.
+   * The frontend converts this to .xlsx using SheetJS.
+   * Default date window: last 90 days.
+   */
+  exportVendorRaw: async (req: Request, res: Response) => {
+    try {
+      const vendorId = parseVendorId(req.params.vendorId);
+      if (!vendorId) return res.status(400).json({ error: 'Invalid vendorId' });
+
+      // Vendors can only export their own data; admins can export any
+      const user = (req as any).user;
+      if (user?.role === 'vendor' && user.vendorId !== vendorId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const to   = req.query.to   ? new Date(req.query.to as string)   : new Date();
+      const from = req.query.from ? new Date(req.query.from as string)  : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+      if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+        return res.status(400).json({ error: 'Invalid date range' });
+      }
+
+      const rows = await AnalyticsRepo.rawExport(vendorId, from, to);
+      return res.json(rows);
+    } catch (err) {
+      console.error('[Analytics] exportVendorRaw error:', err);
+      return res.status(500).json({ error: 'Failed to export analytics' });
     }
   },
 

@@ -88,6 +88,9 @@ export const QrMappingController = {
         });
       }).catch(() => {/* silent — analytics never blocks */});
 
+      // Prevent browser/CDN from caching QR lookup responses — each scan must
+      // reach the server so it can be recorded as a separate analytics event.
+      res.set('Cache-Control', 'no-store');
       return res.send(redirectionUrl);
     } catch (error) {
       console.error('Error handling QR redirection:', error);
@@ -119,6 +122,7 @@ export const QrMappingController = {
         contact: vendor.contact,
         address: vendor.address,
         logoUrl: vendor.logoUrl ?? null,
+        requireLogin: vendor.requireLogin ?? false,
       });
 
     } catch (error) {

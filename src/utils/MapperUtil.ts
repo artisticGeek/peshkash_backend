@@ -102,6 +102,7 @@ export const MapperUtil = {
     address: vendor.address,
     description: vendor.description,
     hasContactPage: vendor.hasContactPage ?? false,
+    requireLogin: vendor.requireLogin ?? false,
   }),
 
   mapEvent: (event: any): EventSummaryDTO => ({
