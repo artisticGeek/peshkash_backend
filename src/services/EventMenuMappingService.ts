@@ -9,8 +9,13 @@ export const EventMenuMappingService = {
 
     const event = mapping.event;
     const now = new Date();
-    const isEventActive = !!(event?.startTime && event?.endTime && event.startTime <= now && event.endTime >= now);
-    console.log('Mapping found in repo:', !!mapping, 'Event:', mapping?.event?.name, 'Menu:', mapping?.menu?.name);
+    // An event is active when:
+    //   • No start/end times are set (perpetual — typical for menus used year-round)
+    //   • OR the current time is within the configured window
+    // Previously, "no times" incorrectly returned false, causing the fallback
+    // (empty lineItems + "event expired" UI) for all freshly-created events.
+    const hasWindow = !!(event?.startTime && event?.endTime);
+    const isEventActive = !hasWindow || (event!.startTime! <= now && event!.endTime! >= now);
 
     return { mapping, isEventActive };
   }

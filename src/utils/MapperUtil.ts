@@ -31,11 +31,13 @@ function mapLineItemsRecursively(
       return {
         id: item.id,
         name: item.name,
+        displayName: item.displayName ?? item.name,
         description: item.description,
         isActive: item.isActive,
         createdAt: item.createdAt,
         itemType: item.type,
         enumType: item.enumType,
+        image: item.image ?? null,
         subCategoryLineItems: subItems,
       };
     })
