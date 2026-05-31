@@ -45,11 +45,27 @@ app.use((_req, res) => {
 sequelize.authenticate()
   .then(async () => {
     console.log('✅ Connected to PostgreSQL via Sequelize');
-    // Idempotent column additions — safe to run on every boot
-    await sequelize.query(
-      `ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS page_url TEXT`
-    ).catch(() => {});
-    // Auth columns on vendor table
+    // ── Idempotent column additions — safe to run on every boot ─────────────────
+    //
+    // analytics_event — columns added progressively after initial schema
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS page_url      TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS menu_id       BIGINT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS item_id       BIGINT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS user_agent    TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS referrer      TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS device_type   VARCHAR(20)`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS qr_type       VARCHAR(50)`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS qr_status     VARCHAR(50)`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved      BOOLEAN`).catch(() => {});
+    await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved_url  TEXT`).catch(() => {});
+
+    // line_item — rich-content columns added after initial schema
+    await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS display_name  TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS ingredients   TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS image         TEXT`).catch(() => {});
+    await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS enum_type     VARCHAR(100)`).catch(() => {});
+
+    // vendor — auth and contact-page columns
     await sequelize.query(
       `ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone VARCHAR(20) UNIQUE`
     ).catch(() => {});
