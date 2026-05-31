@@ -12,6 +12,9 @@ analyticsRouter.get('/items',                    requireRole('admin', 'vendor'),
 analyticsRouter.get('/items/:itemId',            requireRole('admin', 'vendor'), AnalyticsController.getItemAnalytics);
 analyticsRouter.get('/events-leaderboard',       requireRole('admin', 'vendor'), AnalyticsController.getEventLeaderboard);
 
+// Raw export — enriched JSON for one vendor's events; vendor scoping inside handler
+analyticsRouter.get('/export/vendor/:vendorId', requireRole('admin', 'vendor'), AnalyticsController.exportVendorRaw);
+
 // Write endpoint — public (customers fire this from menu/item pages, no token)
 analyticsRouter.post('/action', AnalyticsController.recordAction);
 

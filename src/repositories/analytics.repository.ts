@@ -461,4 +461,74 @@ export const AnalyticsRepo = {
     );
     return rows.map(r => ({ itemId: Number(r.item_id), count: Number(r.count) }));
   },
+
+  /**
+   * Raw event export for a vendor — one row per analytics event, enriched with
+   * joined names so it makes sense in a spreadsheet.
+   * Returns up to 50 000 rows (more than enough for any single vendor).
+   */
+  rawExport: async (vendorId: number, from: Date, to: Date): Promise<Array<Record<string, any>>> => {
+    const rows = await sequelize.query<Record<string, any>>(
+      `SELECT
+         ae.id                                                                 AS "Event ID",
+         ae.created_at                                                         AS "Timestamp",
+         CASE ae.event_type
+           WHEN 'qr_scan' THEN 'QR Scan'
+           WHEN 'action'  THEN 'Action'
+           ELSE ae.event_type
+         END                                                                   AS "Event Type",
+         CASE ae.action_type
+           WHEN 'vendor_contact_view' THEN 'Contact Page View'
+           WHEN 'menu_view'           THEN 'Menu View'
+           WHEN 'item_detail_view'    THEN 'Item Detail View'
+           WHEN 'item_expand'         THEN 'Item Expand'
+           WHEN 'whatsapp_click'      THEN 'WhatsApp Click'
+           WHEN 'call_click'          THEN 'Call Click'
+           WHEN 'email_click'         THEN 'Email Click'
+           WHEN 'directions_click'    THEN 'Directions Click'
+           WHEN 'share_click'         THEN 'Share Click'
+           WHEN 'save_contact'        THEN 'Save Contact'
+           WHEN 'social_click'        THEN 'Social Link Click'
+           ELSE COALESCE(ae.action_type, '—')
+         END                                                                   AS "Action",
+         CASE
+           WHEN ae.event_type = 'qr_scan'                               THEN 'QR Redirect'
+           WHEN ae.action_type = 'vendor_contact_view'                  THEN 'Contact Card'
+           WHEN ae.action_type = 'menu_view'                            THEN 'Menu Page'
+           WHEN ae.action_type IN ('item_expand', 'item_detail_view')   THEN 'Item Page'
+           WHEN ae.item_id IS NOT NULL                                   THEN 'Item Page'
+           WHEN ae.menu_id IS NOT NULL                                   THEN 'Menu Page'
+           ELSE 'Contact Card'
+         END                                                                   AS "Page Type",
+         COALESCE(
+           li.display_name, li.name,
+           m.display_name,
+           e.display_name,
+           v.display_name,
+           '—'
+         )                                                                     AS "Page / Item Name",
+         COALESCE(ae.resolved_url, ae.page_url, '—')                          AS "Page URL",
+         COALESCE(ae.qr_hash, '—')                                            AS "QR Hash",
+         COALESCE(ae.qr_status, '—')                                          AS "QR Status",
+         COALESCE(ae.device_type, 'unknown')                                   AS "Device",
+         SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 8)             AS "Session ID",
+         COALESCE(ae.referrer, '—')                                            AS "Referrer",
+         COALESCE(ae.user_agent, '—')                                          AS "User Agent",
+         COALESCE(v.display_name, '—')                                         AS "Vendor"
+       FROM  analytics_event ae
+       LEFT JOIN vendor    v  ON v.id  = ae.vendor_id
+       LEFT JOIN event     e  ON e.id  = ae.event_id
+       LEFT JOIN menu      m  ON m.id  = ae.menu_id
+       LEFT JOIN line_item li ON li.id = ae.item_id
+       WHERE ae.vendor_id = :vendorId
+         AND ae.created_at BETWEEN :from AND :to
+       ORDER BY ae.created_at DESC
+       LIMIT 50000`,
+      {
+        replacements: { vendorId, from, to },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows;
+  },
 };
