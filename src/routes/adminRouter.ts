@@ -5,6 +5,10 @@ import { requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
 
+// ── Auth gate — every admin route requires a verified admin or vendor session ──
+// (admin-users sub-routes below add their own stricter requireRole('admin') guard)
+router.use(requireRole('admin', 'vendor'));
+
 router.get('/vendors', AdminController.listVendors);
 router.post('/vendors', AdminController.createVendor);
 router.put('/vendors/:vendorId', AdminController.updateVendor);
