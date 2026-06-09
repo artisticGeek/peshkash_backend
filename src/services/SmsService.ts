@@ -64,8 +64,8 @@ async function sendViaFast2Sms(phone: string, otp: string): Promise<void> {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) { mockLog(phone, otp, 'fast2sms'); return; }
 
-  const message = `Your Peshkash OTP is ${otp}. Valid for 10 minutes.`;
-  const payload = JSON.stringify({ route: 'q', numbers: to10Digit(phone), message, flash: 0 });
+  const message = `Your OTP for Peshkash is ${otp}. Valid for 10 minutes :)`;
+  const payload = JSON.stringify({ route: 'otp', numbers: to10Digit(phone), message, flash: 0 });
 
   await new Promise<void>((resolve) => {
     const req = https.request({
