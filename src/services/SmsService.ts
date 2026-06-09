@@ -11,7 +11,7 @@
  * Supported providers:
  *   '2factor'  — https://2factor.in  — free 2,000 OTPs, no payment required
  *                Env var: TWOFACTOR_API_KEY
- *   'fast2sms' — https://fast2sms.com — requires Rs.100 recharge
+ *   'fast2sms' — https://fast2sms.com — requires Rs.100 recharge (~350 OTPs)
  *                Env var: FAST2SMS_API_KEY
  *
  * Mock mode: when the active provider's API key is absent, OTP is printed
@@ -64,8 +64,12 @@ async function sendViaFast2Sms(phone: string, otp: string): Promise<void> {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) { mockLog(phone, otp, 'fast2sms'); return; }
 
-  const message = `Your OTP for Peshkash is ${otp}. Valid for 10 minutes :)`;
-  const payload = JSON.stringify({ route: 'otp', numbers: to10Digit(phone), message, flash: 0 });
+  const payload = JSON.stringify({
+    route:            'otp',
+    variables_values: otp,
+    numbers:          to10Digit(phone),
+    flash:            0,
+  });
 
   await new Promise<void>((resolve) => {
     const req = https.request({
@@ -73,8 +77,8 @@ async function sendViaFast2Sms(phone: string, otp: string): Promise<void> {
       path:     '/dev/bulkV2',
       method:   'POST',
       headers:  {
-        authorization: apiKey,
-        'Content-Type': 'application/json',
+        authorization:    apiKey,
+        'Content-Type':   'application/json',
         'Content-Length': Buffer.byteLength(payload),
       },
     }, res => {
