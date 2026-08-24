@@ -522,11 +522,12 @@ export const AnalyticsRepo = {
          COALESCE(ae.user_agent, '—')                                          AS "User Agent",
          COALESCE(v.display_name, '—')                                         AS "Vendor"
        FROM  analytics_event ae
-       LEFT JOIN vendor    v  ON v.id  = ae.vendor_id
+       LEFT JOIN qr_link_mapping qm ON qm.qr_hash = ae.qr_hash
+       LEFT JOIN vendor    v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
        LEFT JOIN event     e  ON e.id  = ae.event_id
        LEFT JOIN menu      m  ON m.id  = ae.menu_id
        LEFT JOIN line_item li ON li.id = ae.item_id
-       WHERE ae.vendor_id = :vendorId
+       WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
          AND ae.created_at BETWEEN :from AND :to
        ORDER BY ae.created_at DESC
        LIMIT 50000`,
