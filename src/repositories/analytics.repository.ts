@@ -33,14 +33,17 @@ export const AnalyticsRepo = {
 
   /** Total scans in a date range (optionally scoped to vendor or event) */
   totalScans: async (f: DateRangeFilter): Promise<number> => {
-    return AnalyticsEvent.count({
-      where: {
-        eventType: 'qr_scan',
-        createdAt: { [Op.between]: [f.from, f.to] },
-        ...(f.vendorId ? { vendorId: f.vendorId } : {}),
-        ...(f.eventId  ? { eventId:  f.eventId  } : {}),
-      },
-    });
+    const rows = await sequelize.query<{ count: string }>(
+      `SELECT COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id = :eventId' : ''}`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return Number(rows[0]?.count ?? 0);
   },
 
   /** Total unique actions in a date range */
@@ -58,14 +61,15 @@ export const AnalyticsRepo = {
   /** Scans per day — returns rows [{date, count}] */
   scansPerDay: async (f: DateRangeFilter): Promise<Array<{ date: string; count: number }>> => {
     const rows = await sequelize.query<{ date: string; count: string }>(
-      `SELECT DATE(created_at) AS date, COUNT(*) AS count
-       FROM analytics_event
-       WHERE event_type = 'qr_scan'
-         AND created_at BETWEEN :from AND :to
-         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
-         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
-       GROUP BY DATE(created_at)
-       ORDER BY DATE(created_at) ASC`,
+      `SELECT DATE(ae.created_at) AS date, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY DATE(ae.created_at)
+       ORDER BY DATE(ae.created_at) ASC`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
@@ -186,13 +190,14 @@ export const AnalyticsRepo = {
   /** Device type split for scans */
   deviceSplit: async (f: DateRangeFilter): Promise<Array<{ deviceType: string; count: number }>> => {
     const rows = await sequelize.query<{ device_type: string; count: string }>(
-      `SELECT COALESCE(device_type, 'unknown') AS device_type, COUNT(*) AS count
-       FROM analytics_event
-       WHERE event_type = 'qr_scan'
-         AND created_at BETWEEN :from AND :to
-         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
-         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
-       GROUP BY COALESCE(device_type, 'unknown')
+      `SELECT COALESCE(ae.device_type, 'unknown') AS device_type, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY COALESCE(ae.device_type, 'unknown')
        ORDER BY count DESC`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
@@ -205,11 +210,12 @@ export const AnalyticsRepo = {
   /** Timestamp of the most recent analytics event in the scope */
   lastActivity: async (f: DateRangeFilter): Promise<string | null> => {
     const rows = await sequelize.query<{ last_activity: string | null }>(
-      `SELECT MAX(created_at) AS last_activity
-       FROM analytics_event
-       WHERE created_at BETWEEN :from AND :to
-         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
-         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}`,
+      `SELECT MAX(ae.created_at) AS last_activity
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
