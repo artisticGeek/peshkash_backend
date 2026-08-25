@@ -61,6 +61,28 @@ export const AnalyticsController = {
     }
   },
 
+  /** GET /api/analytics/event-log?vendorId=1&from=ISO&to=ISO&limit=50&offset=0 */
+  getEventLog: async (req: Request, res: Response) => {
+    try {
+      const vendorId = parseVendorId(req.query.vendorId);
+      if (!vendorId) return res.status(400).json({ error: 'vendorId required' });
+
+      const fromStr = req.query.from as string | undefined;
+      const toStr   = req.query.to   as string | undefined;
+      const from = fromStr ? new Date(fromStr) : (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d; })();
+      const to   = toStr   ? new Date(toStr)   : new Date();
+
+      const limit  = Math.min(Number(req.query.limit  ?? 50),  200);
+      const offset = Math.max(Number(req.query.offset ?? 0),   0);
+
+      const data = await AnalyticsRepo.recentEvents({ from, to, vendorId }, limit, offset);
+      return res.json(data);
+    } catch (err) {
+      console.error('[Analytics] getEventLog error:', err);
+      return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
   /** GET /api/analytics/items/:itemId?range=30d */
   getItemAnalytics: async (req: Request, res: Response) => {
     try {
