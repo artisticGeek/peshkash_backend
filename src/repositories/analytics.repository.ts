@@ -25,6 +25,7 @@ export interface DateRangeFilter {
   to: Date;
   vendorId?: number;
   eventId?: number;
+  granularity?: 'hour' | 'day';
 }
 
 export const AnalyticsRepo = {
@@ -58,7 +59,31 @@ export const AnalyticsRepo = {
     });
   },
 
-  /** Scans per day — returns rows [{date, count}] */
+  /** Scans per period — hourly or daily based on f.granularity */
+  scansPerPeriod: async (f: DateRangeFilter): Promise<Array<{ period: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', ae.created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  ae.created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; count: string }>(
+      `SELECT ${fmt} AS period, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY 1
+       ORDER BY 1 ASC`,
+      {
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows.map(r => ({ period: r.period, count: Number(r.count) }));
+  },
+
+  /** @deprecated use scansPerPeriod */
   scansPerDay: async (f: DateRangeFilter): Promise<Array<{ date: string; count: number }>> => {
     const rows = await sequelize.query<{ date: string; count: string }>(
       `SELECT DATE(ae.created_at) AS date, COUNT(*) AS count
@@ -187,7 +212,28 @@ export const AnalyticsRepo = {
     return rows.map(r => ({ actionType: r.action_type, count: Number(r.count) }));
   },
 
-  /** Per-day counts broken down by action_type — for multi-line CTA charts */
+  /** Per-period counts broken down by action_type — for multi-line CTA charts */
+  actionsPerPeriodByType: async (f: DateRangeFilter): Promise<Array<{ period: string; actionType: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; action_type: string; count: string }>(
+      `SELECT ${fmt} AS period, action_type, COUNT(*) AS count
+       FROM analytics_event
+       WHERE event_type = 'action'
+         AND action_type IS NOT NULL
+         AND created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
+       GROUP BY 1, action_type
+       ORDER BY 1 ASC`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ period: r.period, actionType: r.action_type, count: Number(r.count) }));
+  },
+
+  /** @deprecated use actionsPerPeriodByType */
   actionsPerDayByType: async (f: DateRangeFilter): Promise<Array<{ date: string; actionType: string; count: number }>> => {
     const rows = await sequelize.query<{ date: string; action_type: string; count: string }>(
       `SELECT DATE(created_at) AS date, action_type, COUNT(*) AS count
