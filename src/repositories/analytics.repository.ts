@@ -547,6 +547,7 @@ export const AnalyticsRepo = {
     qrHash: string | null;
     pageName: string | null;
   }>; total: number }> => {
+    const repl = { vendorId: f.vendorId, from: f.from, to: f.to };
     const [rows, countRows] = await Promise.all([
       sequelize.query<{
         id: string; created_at: string; event_type: string; action_type: string | null;
@@ -558,30 +559,29 @@ export const AnalyticsRepo = {
            ae.created_at,
            ae.event_type,
            ae.action_type,
-           COALESCE(ae.device_type, 'unknown')                      AS device_type,
-           SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)      AS session_id,
+           COALESCE(ae.device_type, 'unknown')                        AS device_type,
+           SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)        AS session_id,
            ae.referrer,
            ae.qr_hash,
-           COALESCE(li.display_name, li.name, m.display_name, e.display_name, v.display_name) AS page_name
+           COALESCE(
+             (SELECT display_name FROM line_item WHERE id = ae.item_id LIMIT 1),
+             (SELECT display_name FROM menu       WHERE id = ae.menu_id   LIMIT 1),
+             (SELECT display_name FROM event      WHERE id = ae.event_id  LIMIT 1),
+             (SELECT display_name FROM vendor     WHERE id = ae.vendor_id LIMIT 1)
+           ) AS page_name
          FROM analytics_event ae
-         LEFT JOIN qr_link_mapping qm ON qm.qr_hash = ae.qr_hash
-         LEFT JOIN vendor v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
-         LEFT JOIN event e   ON e.id  = COALESCE(ae.event_id,  qm.event_id)
-         LEFT JOIN menu m    ON m.id  = ae.menu_id
-         LEFT JOIN line_item li ON li.id = ae.item_id
-         WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
+         WHERE ae.vendor_id = :vendorId
            AND ae.created_at BETWEEN :from AND :to
          ORDER BY ae.created_at DESC
-         LIMIT :limit OFFSET :offset`,
-        { replacements: { vendorId: f.vendorId, from: f.from, to: f.to, limit, offset }, type: QueryTypes.SELECT }
+         LIMIT ${limit} OFFSET ${offset}`,
+        { replacements: repl, type: QueryTypes.SELECT }
       ),
       sequelize.query<{ total: string }>(
         `SELECT COUNT(*) AS total
          FROM analytics_event ae
-         LEFT JOIN qr_link_mapping qm ON qm.qr_hash = ae.qr_hash
-         WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
+         WHERE ae.vendor_id = :vendorId
            AND ae.created_at BETWEEN :from AND :to`,
-        { replacements: { vendorId: f.vendorId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+        { replacements: repl, type: QueryTypes.SELECT }
       ),
     ]);
     return {
