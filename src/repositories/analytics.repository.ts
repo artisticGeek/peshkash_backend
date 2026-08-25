@@ -568,7 +568,7 @@ export const AnalyticsRepo = {
          LEFT JOIN vendor v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
          LEFT JOIN event e   ON e.id  = COALESCE(ae.event_id,  qm.event_id)
          LEFT JOIN menu m    ON m.id  = ae.menu_id
-         LEFT JOIN list_item li ON li.id = ae.item_id
+         LEFT JOIN line_item li ON li.id = ae.item_id
          WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
            AND ae.created_at BETWEEN :from AND :to
          ORDER BY ae.created_at DESC
