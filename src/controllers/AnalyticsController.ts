@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AnalyticsQueryService } from '../services/AnalyticsQueryService';
+import { AnalyticsQueryService, buildDateRange, buildDateRangeFromDates } from '../services/AnalyticsQueryService';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { AnalyticsRepo } from '../repositories/analytics.repository';
 
@@ -19,13 +19,27 @@ function parseVendorId(raw: unknown): number | undefined {
 }
 
 export const AnalyticsController = {
-  /** GET /api/analytics/summary?range=30d&vendorId=1&eventId=2 */
+  /** GET /api/analytics/summary?from=ISO&to=ISO&vendorId=1 (or ?range=30d for compat) */
   getSummary: async (req: Request, res: Response) => {
     try {
-      const range = parseRange(req.query.range);
       const vendorId = parseVendorId(req.query.vendorId);
-      const eventId = parseVendorId(req.query.eventId); // same int-parse logic
-      const summary = await AnalyticsQueryService.getSummary(range, vendorId, eventId);
+      const eventId  = parseVendorId(req.query.eventId);
+
+      let f;
+      const fromStr = req.query.from as string | undefined;
+      const toStr   = req.query.to   as string | undefined;
+      if (fromStr && toStr) {
+        const from = new Date(fromStr);
+        const to   = new Date(toStr);
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+          return res.status(400).json({ error: 'Invalid from/to dates' });
+        }
+        f = buildDateRangeFromDates(from, to, vendorId, eventId);
+      } else {
+        f = buildDateRange(parseRange(req.query.range), vendorId, eventId);
+      }
+
+      const summary = await AnalyticsQueryService.getSummary(f);
       return res.json(summary);
     } catch (err) {
       console.error('[Analytics] getSummary error:', err);
@@ -43,6 +57,28 @@ export const AnalyticsController = {
       return res.json(data);
     } catch (err) {
       console.error('[Analytics] getEventAnalytics error:', err);
+      return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
+  /** GET /api/analytics/event-log?vendorId=1&from=ISO&to=ISO&limit=50&offset=0 */
+  getEventLog: async (req: Request, res: Response) => {
+    try {
+      const vendorId = parseVendorId(req.query.vendorId);
+      if (!vendorId) return res.status(400).json({ error: 'vendorId required' });
+
+      const fromStr = req.query.from as string | undefined;
+      const toStr   = req.query.to   as string | undefined;
+      const from = fromStr ? new Date(fromStr) : (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d; })();
+      const to   = toStr   ? new Date(toStr)   : new Date();
+
+      const limit  = Math.min(Number(req.query.limit  ?? 50),  200);
+      const offset = Math.max(Number(req.query.offset ?? 0),   0);
+
+      const data = await AnalyticsRepo.recentEvents({ from, to, vendorId }, limit, offset);
+      return res.json(data);
+    } catch (err) {
+      console.error('[Analytics] getEventLog error:', err);
       return res.status(500).json({ error: 'Analytics unavailable' });
     }
   },

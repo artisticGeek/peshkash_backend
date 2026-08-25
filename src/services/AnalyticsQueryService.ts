@@ -1,5 +1,16 @@
 import { AnalyticsRepo, DateRangeFilter } from '../repositories/analytics.repository';
 
+/** Compute granularity — hourly for ranges ≤ 3 days, daily otherwise */
+function computeGranularity(from: Date, to: Date): 'hour' | 'day' {
+  const diffMs = to.getTime() - from.getTime();
+  return diffMs <= 3 * 24 * 3600 * 1000 ? 'hour' : 'day';
+}
+
+/** Build a DateRangeFilter from an explicit from/to pair */
+export function buildDateRangeFromDates(from: Date, to: Date, vendorId?: number, eventId?: number): DateRangeFilter {
+  return { from, to, vendorId, eventId, granularity: computeGranularity(from, to) };
+}
+
 /** Pre-defined date ranges for the dashboard filter */
 export function buildDateRange(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): DateRangeFilter {
   const to = new Date();
@@ -8,7 +19,7 @@ export function buildDateRange(range: '7d' | '30d' | '90d' | 'all', vendorId?: n
   else if (range === '30d') from.setDate(from.getDate() - 30);
   else if (range === '90d') from.setDate(from.getDate() - 90);
   else { from.setFullYear(2020); } // 'all' — epoch start
-  return { from, to, vendorId, eventId };
+  return { from, to, vendorId, eventId, granularity: computeGranularity(from, to) };
 }
 
 export interface QrDetail {
@@ -40,14 +51,20 @@ export interface ItemDetail {
 export interface DashboardSummary {
   totalScans: number;
   totalActions: number;
+  /** @deprecated use scansPerPeriod */
   scansPerDay: Array<{ date: string; count: number }>;
+  scansPerPeriod: Array<{ period: string; count: number }>;
   topQrHashes: Array<{ qrHash: string; count: number }>;
   topQrDetails: QrDetail[];
   actionBreakdown: Array<{ actionType: string; count: number }>;
+  actionsPerPeriodByType: Array<{ period: string; actionType: string; count: number }>;
   deviceSplit: Array<{ deviceType: string; count: number }>;
   lastActivity: string | null;
   topItemsViewed: ItemViewed[];
   topItemsDetailed: ItemDetail[];
+  granularity: 'hour' | 'day';
+  rangeFrom: string;
+  rangeTo: string;
 }
 
 export interface ItemAnalytics {
@@ -67,24 +84,33 @@ export interface ItemAnalytics {
 export const AnalyticsQueryService = {
 
   /** Main dashboard summary — all vendors, scoped to a vendor, or scoped to an event */
-  async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): Promise<DashboardSummary> {
-    const f = buildDateRange(range, vendorId, eventId);
-
-    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
+  async getSummary(f: DateRangeFilter): Promise<DashboardSummary> {
+    const [totalScans, totalActions, scansPerPeriod, topQrHashes, topQrDetails, actionBreakdown, actionsPerPeriodByType, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
-        AnalyticsRepo.scansPerDay(f),
+        AnalyticsRepo.scansPerPeriod(f),
         AnalyticsRepo.topQrHashes(f, 10),
         AnalyticsRepo.topQrDetails(f, 10),
         AnalyticsRepo.actionBreakdown(f),
+        AnalyticsRepo.actionsPerPeriodByType(f),
         AnalyticsRepo.deviceSplit(f),
         AnalyticsRepo.lastActivity(f),
-        eventId ? AnalyticsRepo.topItemsViewed(f, 10) : Promise.resolve([]),
+        f.eventId ? AnalyticsRepo.topItemsViewed(f, 10) : Promise.resolve([]),
         AnalyticsRepo.topItemsDetailed(f, 15),
       ]);
 
-    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed };
+    return {
+      totalScans, totalActions,
+      scansPerDay: [],      // deprecated field — kept for schema compat
+      scansPerPeriod,
+      topQrHashes, topQrDetails, actionBreakdown,
+      actionsPerPeriodByType,
+      deviceSplit, lastActivity, topItemsViewed, topItemsDetailed,
+      granularity: f.granularity ?? 'day',
+      rangeFrom: f.from.toISOString(),
+      rangeTo:   f.to.toISOString(),
+    };
   },
 
   /** Event-level analytics (scans + actions for a specific event_id) */

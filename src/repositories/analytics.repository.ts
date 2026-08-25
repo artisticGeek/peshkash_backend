@@ -25,6 +25,7 @@ export interface DateRangeFilter {
   to: Date;
   vendorId?: number;
   eventId?: number;
+  granularity?: 'hour' | 'day';
 }
 
 export const AnalyticsRepo = {
@@ -33,14 +34,17 @@ export const AnalyticsRepo = {
 
   /** Total scans in a date range (optionally scoped to vendor or event) */
   totalScans: async (f: DateRangeFilter): Promise<number> => {
-    return AnalyticsEvent.count({
-      where: {
-        eventType: 'qr_scan',
-        createdAt: { [Op.between]: [f.from, f.to] },
-        ...(f.vendorId ? { vendorId: f.vendorId } : {}),
-        ...(f.eventId  ? { eventId:  f.eventId  } : {}),
-      },
-    });
+    const rows = await sequelize.query<{ count: string }>(
+      `SELECT COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id = :eventId' : ''}`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return Number(rows[0]?.count ?? 0);
   },
 
   /** Total unique actions in a date range */
@@ -55,17 +59,42 @@ export const AnalyticsRepo = {
     });
   },
 
-  /** Scans per day — returns rows [{date, count}] */
+  /** Scans per period — hourly or daily based on f.granularity */
+  scansPerPeriod: async (f: DateRangeFilter): Promise<Array<{ period: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', ae.created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  ae.created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; count: string }>(
+      `SELECT ${fmt} AS period, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY 1
+       ORDER BY 1 ASC`,
+      {
+        replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
+        type: QueryTypes.SELECT,
+      }
+    );
+    return rows.map(r => ({ period: r.period, count: Number(r.count) }));
+  },
+
+  /** @deprecated use scansPerPeriod */
   scansPerDay: async (f: DateRangeFilter): Promise<Array<{ date: string; count: number }>> => {
     const rows = await sequelize.query<{ date: string; count: string }>(
-      `SELECT DATE(created_at) AS date, COUNT(*) AS count
-       FROM analytics_event
-       WHERE event_type = 'qr_scan'
-         AND created_at BETWEEN :from AND :to
-         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
-         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
-       GROUP BY DATE(created_at)
-       ORDER BY DATE(created_at) ASC`,
+      `SELECT DATE(ae.created_at) AS date, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY DATE(ae.created_at)
+       ORDER BY DATE(ae.created_at) ASC`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
@@ -183,16 +212,55 @@ export const AnalyticsRepo = {
     return rows.map(r => ({ actionType: r.action_type, count: Number(r.count) }));
   },
 
-  /** Device type split for scans */
-  deviceSplit: async (f: DateRangeFilter): Promise<Array<{ deviceType: string; count: number }>> => {
-    const rows = await sequelize.query<{ device_type: string; count: string }>(
-      `SELECT COALESCE(device_type, 'unknown') AS device_type, COUNT(*) AS count
+  /** Per-period counts broken down by action_type — for multi-line CTA charts */
+  actionsPerPeriodByType: async (f: DateRangeFilter): Promise<Array<{ period: string; actionType: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; action_type: string; count: string }>(
+      `SELECT ${fmt} AS period, action_type, COUNT(*) AS count
        FROM analytics_event
-       WHERE event_type = 'qr_scan'
+       WHERE event_type = 'action'
+         AND action_type IS NOT NULL
          AND created_at BETWEEN :from AND :to
          ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
          ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
-       GROUP BY COALESCE(device_type, 'unknown')
+       GROUP BY 1, action_type
+       ORDER BY 1 ASC`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ period: r.period, actionType: r.action_type, count: Number(r.count) }));
+  },
+
+  /** @deprecated use actionsPerPeriodByType */
+  actionsPerDayByType: async (f: DateRangeFilter): Promise<Array<{ date: string; actionType: string; count: number }>> => {
+    const rows = await sequelize.query<{ date: string; action_type: string; count: string }>(
+      `SELECT DATE(created_at) AS date, action_type, COUNT(*) AS count
+       FROM analytics_event
+       WHERE event_type = 'action'
+         AND action_type IS NOT NULL
+         AND created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
+       GROUP BY DATE(created_at), action_type
+       ORDER BY DATE(created_at) ASC`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ date: r.date, actionType: r.action_type, count: Number(r.count) }));
+  },
+
+  /** Device type split for scans */
+  deviceSplit: async (f: DateRangeFilter): Promise<Array<{ deviceType: string; count: number }>> => {
+    const rows = await sequelize.query<{ device_type: string; count: string }>(
+      `SELECT COALESCE(ae.device_type, 'unknown') AS device_type, COUNT(*) AS count
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.event_type = 'qr_scan'
+         AND ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}
+       GROUP BY COALESCE(ae.device_type, 'unknown')
        ORDER BY count DESC`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
@@ -205,11 +273,12 @@ export const AnalyticsRepo = {
   /** Timestamp of the most recent analytics event in the scope */
   lastActivity: async (f: DateRangeFilter): Promise<string | null> => {
     const rows = await sequelize.query<{ last_activity: string | null }>(
-      `SELECT MAX(created_at) AS last_activity
-       FROM analytics_event
-       WHERE created_at BETWEEN :from AND :to
-         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
-         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}`,
+      `SELECT MAX(ae.created_at) AS last_activity
+       FROM analytics_event ae
+       ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+       WHERE ae.created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+         ${f.eventId  ? 'AND ae.event_id  = :eventId'  : ''}`,
       {
         replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId },
         type: QueryTypes.SELECT,
@@ -462,6 +531,75 @@ export const AnalyticsRepo = {
     return rows.map(r => ({ itemId: Number(r.item_id), count: Number(r.count) }));
   },
 
+  /** Paginated recent events for the event-trace panel */
+  recentEvents: async (
+    f: DateRangeFilter,
+    limit = 50,
+    offset = 0,
+  ): Promise<{ rows: Array<{
+    id: number;
+    createdAt: string;
+    eventType: string;
+    actionType: string | null;
+    deviceType: string;
+    sessionId: string;
+    referrer: string | null;
+    qrHash: string | null;
+    pageName: string | null;
+  }>; total: number }> => {
+    const repl = { vendorId: f.vendorId, from: f.from, to: f.to };
+    const [rows, countRows] = await Promise.all([
+      sequelize.query<{
+        id: string; created_at: string; event_type: string; action_type: string | null;
+        device_type: string | null; session_id: string; referrer: string | null;
+        qr_hash: string | null; page_name: string | null;
+      }>(
+        `SELECT
+           ae.id,
+           ae.created_at,
+           ae.event_type,
+           ae.action_type,
+           COALESCE(ae.device_type, 'unknown')                        AS device_type,
+           SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)        AS session_id,
+           ae.referrer,
+           ae.qr_hash,
+           COALESCE(
+             (SELECT display_name FROM line_item WHERE id = ae.item_id LIMIT 1),
+             (SELECT display_name FROM menu       WHERE id = ae.menu_id   LIMIT 1),
+             (SELECT display_name FROM event      WHERE id = ae.event_id  LIMIT 1),
+             (SELECT display_name FROM vendor     WHERE id = ae.vendor_id LIMIT 1)
+           ) AS page_name
+         FROM analytics_event ae
+         WHERE ae.vendor_id = :vendorId
+           AND ae.created_at BETWEEN :from AND :to
+         ORDER BY ae.created_at DESC
+         LIMIT ${limit} OFFSET ${offset}`,
+        { replacements: repl, type: QueryTypes.SELECT }
+      ),
+      sequelize.query<{ total: string }>(
+        `SELECT COUNT(*) AS total
+         FROM analytics_event ae
+         WHERE ae.vendor_id = :vendorId
+           AND ae.created_at BETWEEN :from AND :to`,
+        { replacements: repl, type: QueryTypes.SELECT }
+      ),
+    ]);
+    return {
+      total: Number(countRows[0]?.total ?? 0),
+      rows: rows.map(r => ({
+        id: Number(r.id),
+        createdAt: r.created_at,
+        eventType: r.event_type,
+        actionType: r.action_type,
+        deviceType: r.device_type ?? 'unknown',
+        sessionId: r.session_id,
+        referrer: r.referrer ?? null,
+        qrHash: r.qr_hash ?? null,
+        pageName: r.page_name ?? null,
+      })),
+    };
+  },
+
   /**
    * Raw event export for a vendor — one row per analytics event, enriched with
    * joined names so it makes sense in a spreadsheet.
@@ -516,11 +654,12 @@ export const AnalyticsRepo = {
          COALESCE(ae.user_agent, '—')                                          AS "User Agent",
          COALESCE(v.display_name, '—')                                         AS "Vendor"
        FROM  analytics_event ae
-       LEFT JOIN vendor    v  ON v.id  = ae.vendor_id
+       LEFT JOIN qr_link_mapping qm ON qm.qr_hash = ae.qr_hash
+       LEFT JOIN vendor    v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
        LEFT JOIN event     e  ON e.id  = ae.event_id
        LEFT JOIN menu      m  ON m.id  = ae.menu_id
        LEFT JOIN line_item li ON li.id = ae.item_id
-       WHERE ae.vendor_id = :vendorId
+       WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
          AND ae.created_at BETWEEN :from AND :to
        ORDER BY ae.created_at DESC
        LIMIT 50000`,
