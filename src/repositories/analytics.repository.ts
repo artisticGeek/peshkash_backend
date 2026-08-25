@@ -187,6 +187,23 @@ export const AnalyticsRepo = {
     return rows.map(r => ({ actionType: r.action_type, count: Number(r.count) }));
   },
 
+  /** Per-day counts broken down by action_type — for multi-line CTA charts */
+  actionsPerDayByType: async (f: DateRangeFilter): Promise<Array<{ date: string; actionType: string; count: number }>> => {
+    const rows = await sequelize.query<{ date: string; action_type: string; count: string }>(
+      `SELECT DATE(created_at) AS date, action_type, COUNT(*) AS count
+       FROM analytics_event
+       WHERE event_type = 'action'
+         AND action_type IS NOT NULL
+         AND created_at BETWEEN :from AND :to
+         ${f.vendorId ? 'AND vendor_id = :vendorId' : ''}
+         ${f.eventId  ? 'AND event_id  = :eventId'  : ''}
+       GROUP BY DATE(created_at), action_type
+       ORDER BY DATE(created_at) ASC`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ date: r.date, actionType: r.action_type, count: Number(r.count) }));
+  },
+
   /** Device type split for scans */
   deviceSplit: async (f: DateRangeFilter): Promise<Array<{ deviceType: string; count: number }>> => {
     const rows = await sequelize.query<{ device_type: string; count: string }>(

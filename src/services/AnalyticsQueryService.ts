@@ -44,6 +44,7 @@ export interface DashboardSummary {
   topQrHashes: Array<{ qrHash: string; count: number }>;
   topQrDetails: QrDetail[];
   actionBreakdown: Array<{ actionType: string; count: number }>;
+  actionsPerDayByType: Array<{ date: string; actionType: string; count: number }>;
   deviceSplit: Array<{ deviceType: string; count: number }>;
   lastActivity: string | null;
   topItemsViewed: ItemViewed[];
@@ -70,7 +71,7 @@ export const AnalyticsQueryService = {
   async getSummary(range: '7d' | '30d' | '90d' | 'all', vendorId?: number, eventId?: number): Promise<DashboardSummary> {
     const f = buildDateRange(range, vendorId, eventId);
 
-    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
+    const [totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, actionsPerDayByType, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
@@ -78,13 +79,14 @@ export const AnalyticsQueryService = {
         AnalyticsRepo.topQrHashes(f, 10),
         AnalyticsRepo.topQrDetails(f, 10),
         AnalyticsRepo.actionBreakdown(f),
+        AnalyticsRepo.actionsPerDayByType(f),
         AnalyticsRepo.deviceSplit(f),
         AnalyticsRepo.lastActivity(f),
         eventId ? AnalyticsRepo.topItemsViewed(f, 10) : Promise.resolve([]),
         AnalyticsRepo.topItemsDetailed(f, 15),
       ]);
 
-    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed };
+    return { totalScans, totalActions, scansPerDay, topQrHashes, topQrDetails, actionBreakdown, actionsPerDayByType, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed };
   },
 
   /** Event-level analytics (scans + actions for a specific event_id) */
