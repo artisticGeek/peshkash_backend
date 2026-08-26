@@ -61,11 +61,13 @@ export const AnalyticsController = {
     }
   },
 
-  /** GET /api/analytics/event-log?vendorId=1&from=ISO&to=ISO&limit=50&offset=0 */
+  /** GET /api/analytics/event-log?vendorId=1&eventId=2&from=ISO&to=ISO&limit=50&offset=0 */
   getEventLog: async (req: Request, res: Response) => {
     try {
       const vendorId = parseVendorId(req.query.vendorId);
-      if (!vendorId) return res.status(400).json({ error: 'vendorId required' });
+      const eventId  = parseVendorId(req.query.eventId);
+      const itemId   = parseVendorId(req.query.itemId);
+      if (!vendorId && !eventId && !itemId) return res.status(400).json({ error: 'vendorId, eventId, or itemId required' });
 
       const fromStr = req.query.from as string | undefined;
       const toStr   = req.query.to   as string | undefined;
@@ -75,7 +77,7 @@ export const AnalyticsController = {
       const limit  = Math.min(Number(req.query.limit  ?? 50),  200);
       const offset = Math.max(Number(req.query.offset ?? 0),   0);
 
-      const data = await AnalyticsRepo.recentEvents({ from, to, vendorId }, limit, offset);
+      const data = await AnalyticsRepo.recentEvents({ from, to, vendorId, eventId, ...(itemId ? { itemId } : {}) } as any, limit, offset);
       return res.json(data);
     } catch (err) {
       console.error('[Analytics] getEventLog error:', err);
@@ -83,13 +85,23 @@ export const AnalyticsController = {
     }
   },
 
-  /** GET /api/analytics/items/:itemId?range=30d */
+  /** GET /api/analytics/items/:itemId?from=ISO&to=ISO (or ?range=30d fallback) */
   getItemAnalytics: async (req: Request, res: Response) => {
     try {
       const itemId = Number(req.params.itemId);
       if (isNaN(itemId) || itemId <= 0) return res.status(400).json({ error: 'Invalid itemId' });
-      const range = parseRange(req.query.range);
-      const data = await AnalyticsQueryService.getItemAnalytics(itemId, range);
+      const fromStr = req.query.from as string | undefined;
+      const toStr   = req.query.to   as string | undefined;
+      let f;
+      if (fromStr && toStr) {
+        const from = new Date(fromStr);
+        const to   = new Date(toStr);
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) return res.status(400).json({ error: 'Invalid from/to dates' });
+        f = buildDateRangeFromDates(from, to);
+      } else {
+        f = buildDateRange(parseRange(req.query.range));
+      }
+      const data = await AnalyticsQueryService.getItemAnalyticsWithFilter(itemId, f);
       return res.json(data);
     } catch (err) {
       console.error('[Analytics] getItemAnalytics error:', err);
@@ -120,6 +132,20 @@ export const AnalyticsController = {
       return res.json(data);
     } catch (err) {
       console.error('[Analytics] getEventItemsBreakdown error:', err);
+      return res.status(500).json({ error: 'Analytics unavailable' });
+    }
+  },
+
+  /** GET /api/analytics/events/:eventId/catalog?range=30d — ALL items for the event, analytics overlaid */
+  getEventCatalog: async (req: Request, res: Response) => {
+    try {
+      const eventId = Number(req.params.eventId);
+      if (isNaN(eventId) || eventId <= 0) return res.status(400).json({ error: 'Invalid eventId' });
+      const range = parseRange(req.query.range);
+      const data = await AnalyticsQueryService.getAllItemsForEvent(eventId, range);
+      return res.json(data);
+    } catch (err) {
+      console.error('[Analytics] getEventCatalog error:', err);
       return res.status(500).json({ error: 'Analytics unavailable' });
     }
   },
@@ -176,7 +202,7 @@ export const AnalyticsController = {
    * Called by the frontend useAnalytics composable — always responds 204.
    */
   recordAction: async (req: Request, res: Response) => {
-    const { actionType, vendorId, eventId, menuId, itemId, qrHash, pageUrl } = req.body ?? {};
+    const { actionType, vendorId, eventId, menuId, itemId, qrHash, pageUrl, phone } = req.body ?? {};
     if (!actionType) return res.status(204).end();
 
     AnalyticsRecorder.recordAction(
@@ -188,6 +214,7 @@ export const AnalyticsController = {
         itemId: itemId ? Number(itemId) : undefined,
         qrHash: qrHash ? String(qrHash) : undefined,
         pageUrl: pageUrl ? String(pageUrl).slice(0, 2000) : undefined,
+        phone: phone ? String(phone).slice(0, 20) : undefined,
       },
       req
     );
