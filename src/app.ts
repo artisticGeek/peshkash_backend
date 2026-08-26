@@ -11,6 +11,8 @@ import { AnalyticsQueue } from './services/AnalyticsQueue';
 
 const app = express();
 
+app.disable('x-powered-by');
+app.use((_req, res, next) => { res.setHeader('X-App', 'Peshkash'); next(); });
 app.use(cors());
 app.use(express.json());
 
