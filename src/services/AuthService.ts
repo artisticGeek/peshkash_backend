@@ -26,6 +26,8 @@ export interface AuthPayload {
   phone:     string;
   role:      Role;
   vendorId?: number | null;
+  iat?:      number; // JWT standard claim — seconds since epoch
+  exp?:      number; // JWT standard claim
 }
 
 const JWT_SECRET    = process.env.JWT_SECRET ?? 'peshkash-dev-secret-change-in-prod';

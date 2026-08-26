@@ -99,6 +99,15 @@ export async function runMigrations(): Promise<void> {
     ).catch(() => {});
   }
 
+  // Session invalidation — force-logout specific phones or all users
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS session_invalidation (
+      phone             VARCHAR(50) PRIMARY KEY,
+      invalidate_before TIMESTAMPTZ NOT NULL,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+
   // App config table — runtime settings editable directly in the DB
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS app_config (
