@@ -68,6 +68,7 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS qr_status     VARCHAR(50)`).catch(() => {});
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved      BOOLEAN`).catch(() => {});
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved_url  TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS phone         VARCHAR(20)`).catch(() => {});
 
   // line_item — rich-content columns added after initial schema
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS display_name  TEXT`).catch(() => {});
