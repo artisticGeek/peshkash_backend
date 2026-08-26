@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/AdminController';
+import { AuthController } from '../controllers/AuthController';
+import { requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
+
+// ── Auth gate — every admin route requires a verified admin or vendor session ──
+// (admin-users sub-routes below add their own stricter requireRole('admin') guard)
+router.use(requireRole('admin', 'vendor'));
 
 router.get('/vendors', AdminController.listVendors);
 router.post('/vendors', AdminController.createVendor);
@@ -44,5 +50,10 @@ router.delete('/qr-templates/:id', AdminController.deleteQrTemplate);
 router.get('/previews', AdminController.getPreviews);
 router.get('/preview/menu', AdminController.buildMenuPath);
 router.get('/preview/item', AdminController.buildItemPath);
+
+// Admin user management — only accessible by admins
+router.get('/admin-users',         requireRole('admin'), AuthController.listAdminUsers);
+router.post('/admin-users',        requireRole('admin'), AuthController.addAdminUser);
+router.delete('/admin-users/:phone', requireRole('admin'), AuthController.removeAdminUser);
 
 export default router;

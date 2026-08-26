@@ -69,4 +69,10 @@ export class AnalyticsEvent extends Model<AnalyticsEvent> {
 
   @Column({ field: 'referrer', type: DataType.TEXT, allowNull: true })
   referrer?: string;
+
+  @Column({ field: 'page_url', type: DataType.TEXT, allowNull: true })
+  pageUrl?: string;
+
+  @Column({ field: 'phone', type: DataType.STRING(20), allowNull: true })
+  phone?: string;
 }

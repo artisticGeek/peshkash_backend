@@ -2,3 +2,7 @@ node_modules/
 dist/
 .env
 package-lock.json
+
+# Logs (Render output, ts-node-dev, etc.)
+*.log
+logs/

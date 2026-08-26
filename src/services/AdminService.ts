@@ -1,4 +1,5 @@
 import { Op, QueryTypes, literal } from 'sequelize';
+import { sequelize } from '../config/sequelize';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
 import { LineItem } from '../models/lineItem.model';
@@ -99,6 +100,18 @@ function isStatus(value: unknown) {
   return value === 'draft' || value === 'active' || value === 'inactive';
 }
 
+/** Normalise a login phone to E.164 (+91XXXXXXXXXX) or null if blank. */
+function normalizeLoginPhone(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('+')) return trimmed;
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return trimmed;
+}
+
 function cleanVendor(vendor: Vendor) {
   return {
     id: vendor.id,
@@ -109,6 +122,8 @@ function cleanVendor(vendor: Vendor) {
     address: vendor.address,
     hasContactPage: vendor.hasContactPage,
     logoUrl: vendor.logoUrl ?? null,
+    loginPhone: vendor.phone ?? null,
+    requireLogin: vendor.requireLogin,
     createdAt: vendor.createdAt,
   };
 }
@@ -244,6 +259,8 @@ export const AdminService = {
       address: body.address?.trim() || null,
       hasContactPage: Boolean(body.hasContactPage),
       logoUrl: body.logoUrl?.trim() || null,
+      phone: normalizeLoginPhone(body.loginPhone),
+      requireLogin: Boolean(body.requireLogin),
     } as any);
     return cleanVendor(vendor);
   },
@@ -264,6 +281,8 @@ export const AdminService = {
       address: body.address?.trim() || null,
       hasContactPage: body.hasContactPage !== undefined ? Boolean(body.hasContactPage) : vendor.hasContactPage,
       logoUrl: body.logoUrl !== undefined ? (body.logoUrl?.trim() || null) : vendor.logoUrl,
+      phone: ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone) as string | undefined,
+      requireLogin: body.requireLogin !== undefined ? Boolean(body.requireLogin) : vendor.requireLogin,
     });
     return cleanVendor(vendor);
   },
@@ -471,7 +490,29 @@ export const AdminService = {
   listQrMappings: async (ctx: UrlContext, vendorId?: number) => {
     const where = vendorId ? { vendorId } : {};
     const mappings = await QrLinkMapping.findAll({ where: where as any, order: [['createdAt', 'DESC']] });
-    return mappings.map((mapping) => withUrls(mapping, ctx));
+    if (!mappings.length) return [];
+
+    // Enrich with real scan counts from analytics_event (usageCount column is never incremented)
+    const hashes = mappings.map(m => m.qrHash).filter(Boolean) as string[];
+    let scanCounts: Record<string, number> = {};
+    if (hashes.length) {
+      try {
+        const rows = await sequelize.query<{ qr_hash: string; cnt: string }>(
+          `SELECT qr_hash, COUNT(*) AS cnt FROM analytics_event
+           WHERE event_type = 'qr_scan' AND qr_hash IN (:hashes)
+           GROUP BY qr_hash`,
+          { replacements: { hashes }, type: QueryTypes.SELECT }
+        );
+        rows.forEach(r => { scanCounts[r.qr_hash] = Number(r.cnt); });
+      } catch {
+        // analytics table may not exist yet — fall back to usageCount
+      }
+    }
+
+    return mappings.map(m => ({
+      ...withUrls(m, ctx),
+      usageCount: scanCounts[m.qrHash ?? ''] ?? m.usageCount ?? 0,
+    }));
   },
 
   upsertQrMapping: async (body: any, ctx: UrlContext) => {

@@ -31,11 +31,13 @@ function mapLineItemsRecursively(
       return {
         id: item.id,
         name: item.name,
+        displayName: item.displayName ?? item.name,
         description: item.description,
         isActive: item.isActive,
         createdAt: item.createdAt,
         itemType: item.type,
         enumType: item.enumType,
+        image: item.image ?? null,
         subCategoryLineItems: subItems,
       };
     })
@@ -69,6 +71,7 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
   return {
     responseType: 'ITEM',
     id: targetItem.name, // same as name
+    numericId: targetItem.id,
     name: targetItem.name,
     description: targetItem.description,
     isActive: targetItem.isActive,
@@ -102,6 +105,7 @@ export const MapperUtil = {
     address: vendor.address,
     description: vendor.description,
     hasContactPage: vendor.hasContactPage ?? false,
+    requireLogin: vendor.requireLogin ?? false,
   }),
 
   mapEvent: (event: any): EventSummaryDTO => ({
