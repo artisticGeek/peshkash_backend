@@ -51,6 +51,18 @@ export const QrLinkMappingService = {
     },
 
     /**
+     * Infer an eventId from a URL path like /event/{slug} or /event/{slug}/menu/...
+     * Returns the event's numeric id, or undefined if no match.
+     */
+    inferEventIdFromUrl: async (url: string | undefined): Promise<number | undefined> => {
+        if (!url) return undefined;
+        const m = url.match(/\/event\/([^/?#]+)/);
+        if (!m) return undefined;
+        const event = await Event.findOne({ where: { name: m[1] }, attributes: ['id'] });
+        return event?.id ?? undefined;
+    },
+
+    /**
      * One-time startup job: set vendor_id on qr_link_mapping rows where it is
      * NULL but the stored url contains a /vendor/{slug} path.
      */

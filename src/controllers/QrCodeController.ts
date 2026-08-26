@@ -79,16 +79,23 @@ export const QrMappingController = {
       QrLinkMappingRepo.getByHash(qrHash).then(async mapping => {
         let vendorId: number | undefined = mapping?.vendorId ?? undefined;
         let eventId:  number | undefined = mapping?.eventId  ?? undefined;
+        const resolvedUrl = mapping?.url ?? redirectionUrl.redirectionUrl;
 
         // Infer vendorId from the redirect URL when not stored on the mapping
         if (!vendorId) {
-          const inferred = await QrLinkMappingService.inferVendorIdFromUrl(
-            mapping?.url ?? redirectionUrl.redirectionUrl
-          );
+          const inferred = await QrLinkMappingService.inferVendorIdFromUrl(resolvedUrl);
           if (inferred) {
             vendorId = inferred;
-            // Backfill so future scans of this QR are attributed correctly
             if (mapping) await QrLinkMappingRepo.setVendorId(mapping.id, inferred);
+          }
+        }
+
+        // Infer eventId from URL like /event/{slug} when not stored on the mapping
+        if (!eventId) {
+          const inferred = await QrLinkMappingService.inferEventIdFromUrl(resolvedUrl);
+          if (inferred) {
+            eventId = inferred;
+            if (mapping) await QrLinkMappingRepo.setEventId(mapping.id, inferred);
           }
         }
 

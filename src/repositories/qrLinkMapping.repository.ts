@@ -13,4 +13,7 @@ export const QrLinkMappingRepo = {
 
   setVendorId: async (id: number, vendorId: number) =>
     QrLinkMapping.update({ vendorId }, { where: { id } }),
+
+  setEventId: async (id: number, eventId: number) =>
+    QrLinkMapping.update({ eventId } as any, { where: { id } }),
 };
