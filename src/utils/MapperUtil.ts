@@ -71,6 +71,7 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
   return {
     responseType: 'ITEM',
     id: targetItem.name, // same as name
+    numericId: targetItem.id,
     name: targetItem.name,
     description: targetItem.description,
     isActive: targetItem.isActive,

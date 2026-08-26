@@ -18,6 +18,7 @@ export interface InsertPayload {
   userAgent?: string;
   referrer?: string;
   pageUrl?: string;
+  phone?: string;
 }
 
 export interface DateRangeFilter {
@@ -423,6 +424,42 @@ export const AnalyticsRepo = {
     return rows[0]?.last_activity ?? null;
   },
 
+  /** Views per granular period for one item (for ContactActionsChart) */
+  itemViewsPerPeriod: async (itemId: number, f: DateRangeFilter): Promise<Array<{ period: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; count: string }>(
+      `SELECT ${fmt} AS period, COUNT(*) AS count
+       FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type IN ('item_expand','item_detail_view')
+         AND created_at BETWEEN :from AND :to
+       GROUP BY 1 ORDER BY 1 ASC`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ period: r.period, count: Number(r.count) }));
+  },
+
+  /** Actions per period by type for one item (for ContactActionsChart) */
+  itemActionsPerPeriodByType: async (itemId: number, f: DateRangeFilter): Promise<Array<{ period: string; actionType: string; count: number }>> => {
+    const g = f.granularity ?? 'day';
+    const fmt = g === 'hour'
+      ? `TO_CHAR(DATE_TRUNC('hour', created_at), 'YYYY-MM-DD"T"HH24:MI:SS')`
+      : `TO_CHAR(DATE_TRUNC('day',  created_at), 'YYYY-MM-DD')`;
+    const rows = await sequelize.query<{ period: string; action_type: string; count: string }>(
+      `SELECT ${fmt} AS period, action_type, COUNT(*) AS count
+       FROM analytics_event
+       WHERE item_id = :itemId AND event_type = 'action'
+         AND action_type NOT IN ('item_expand','item_detail_view','menu_view','vendor_contact_view')
+         AND created_at BETWEEN :from AND :to
+       GROUP BY 1, action_type ORDER BY 1 ASC`,
+      { replacements: { itemId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({ period: r.period, actionType: r.action_type, count: Number(r.count) }));
+  },
+
   /** QR hashes seen in analytics events that had this item in context */
   itemLinkedQrHashes: async (itemId: number): Promise<string[]> => {
     const rows = await sequelize.query<{ qr_hash: string }>(
@@ -493,6 +530,85 @@ export const AnalyticsRepo = {
     }));
   },
 
+  /**
+   * ALL items linked to an event's menus, with analytics data LEFT-JOINed in.
+   * Returns every item even if it has zero interactions in the period.
+   */
+  allItemsForEvent: async (eventId: number, f: DateRangeFilter): Promise<Array<{
+    itemId: number; itemName: string; itemType: string; menuName: string;
+    expands: number; detailViews: number;
+    whatsappClicks: number; shareClicks: number;
+    directions: number; saves: number; calls: number;
+    totalActions: number; lastActivity: string | null;
+  }>> => {
+    const rows = await sequelize.query<{
+      item_id: string; item_name: string; item_type: string; menu_name: string;
+      expands: string; detail_views: string; whatsapp_clicks: string;
+      share_clicks: string; directions: string; saves: string; calls: string;
+      total_actions: string; last_activity: string | null;
+    }>(
+      `WITH candidate_items AS (
+         -- 1. Items formally linked via event_menu_mapping
+         SELECT li.id
+         FROM line_item li
+         JOIN menu m ON m.id = li.menu_id
+         JOIN event_menu_mapping emm ON emm.menu_id = m.id AND emm.event_id = :eventId
+         UNION
+         -- 2. Items clicked directly in analytics events for this event
+         SELECT ae.item_id AS id
+         FROM analytics_event ae
+         WHERE ae.event_id = :eventId AND ae.item_id IS NOT NULL
+         UNION
+         -- 3. All items from menus that appear in analytics events for this event
+         --    (catches menus viewed even when no individual item was clicked yet)
+         SELECT li.id
+         FROM analytics_event ae
+         JOIN line_item li ON li.menu_id = ae.menu_id
+         WHERE ae.event_id = :eventId AND ae.menu_id IS NOT NULL
+       )
+       SELECT
+         li.id                                                                          AS item_id,
+         COALESCE(li.display_name, li.name)                                             AS item_name,
+         COALESCE(li.type, 'item')                                                      AS item_type,
+         COALESCE(m.display_name, m.name)                                               AS menu_name,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'item_expand')                    AS expands,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'item_detail_view')               AS detail_views,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'whatsapp_click')                 AS whatsapp_clicks,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'share_click')                    AS share_clicks,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'directions_click')               AS directions,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'save_contact')                   AS saves,
+         COUNT(ae.id) FILTER (WHERE ae.action_type = 'call_click')                     AS calls,
+         COUNT(ae.id)                                                                   AS total_actions,
+         MAX(ae.created_at)                                                             AS last_activity
+       FROM candidate_items ci
+       JOIN line_item li ON li.id = ci.id
+       JOIN menu m ON m.id = li.menu_id
+       LEFT JOIN analytics_event ae
+         ON ae.item_id = li.id
+         AND ae.event_id = :eventId
+         AND ae.event_type = 'action'
+         AND ae.created_at BETWEEN :from AND :to
+       GROUP BY li.id, li.name, li.display_name, li.type, m.id, m.name, m.display_name
+       ORDER BY total_actions DESC, li.id ASC`,
+      { replacements: { eventId, from: f.from, to: f.to }, type: QueryTypes.SELECT }
+    );
+    return rows.map(r => ({
+      itemId:         Number(r.item_id),
+      itemName:       r.item_name,
+      itemType:       r.item_type,
+      menuName:       r.menu_name,
+      expands:        Number(r.expands),
+      detailViews:    Number(r.detail_views),
+      whatsappClicks: Number(r.whatsapp_clicks),
+      shareClicks:    Number(r.share_clicks),
+      directions:     Number(r.directions),
+      saves:          Number(r.saves),
+      calls:          Number(r.calls),
+      totalActions:   Number(r.total_actions),
+      lastActivity:   r.last_activity ?? null,
+    }));
+  },
+
   /** Scans per event */
   scansByEvent: async (f: DateRangeFilter): Promise<Array<{ eventId: number; count: number }>> => {
     const rows = await sequelize.query<{ event_id: string; count: string }>(
@@ -543,15 +659,36 @@ export const AnalyticsRepo = {
     actionType: string | null;
     deviceType: string;
     sessionId: string;
+    phone: string | null;
     referrer: string | null;
     qrHash: string | null;
     pageName: string | null;
   }>; total: number }> => {
-    const repl = { vendorId: f.vendorId, from: f.from, to: f.to };
+    const repl: Record<string, any> = { from: f.from, to: f.to };
+    if (f.eventId)  repl.eventId  = f.eventId;
+    else if ((f as any).itemId) repl.itemId = (f as any).itemId;
+    else repl.vendorId = f.vendorId;
+    const scopeClause = f.eventId
+      ? 'ae.event_id = :eventId'
+      : (f as any).itemId
+        ? 'ae.item_id = :itemId'
+        : 'ae.vendor_id = :vendorId';
+    // When scoping by item, show event→menu as context instead of item name
+    const pageNameExpr = (f as any).itemId
+      ? `COALESCE(
+           (SELECT display_name FROM event WHERE id = ae.event_id LIMIT 1),
+           (SELECT display_name FROM menu  WHERE id = ae.menu_id  LIMIT 1)
+         )`
+      : `COALESCE(
+           (SELECT display_name FROM line_item WHERE id = ae.item_id  LIMIT 1),
+           (SELECT display_name FROM menu       WHERE id = ae.menu_id LIMIT 1),
+           (SELECT display_name FROM event      WHERE id = ae.event_id LIMIT 1),
+           (SELECT display_name FROM vendor     WHERE id = ae.vendor_id LIMIT 1)
+         )`;
     const [rows, countRows] = await Promise.all([
       sequelize.query<{
         id: string; created_at: string; event_type: string; action_type: string | null;
-        device_type: string | null; session_id: string; referrer: string | null;
+        device_type: string | null; session_id: string; phone: string | null; referrer: string | null;
         qr_hash: string | null; page_name: string | null;
       }>(
         `SELECT
@@ -561,16 +698,12 @@ export const AnalyticsRepo = {
            ae.action_type,
            COALESCE(ae.device_type, 'unknown')                        AS device_type,
            SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)        AS session_id,
+           ae.phone,
            ae.referrer,
            ae.qr_hash,
-           COALESCE(
-             (SELECT display_name FROM line_item WHERE id = ae.item_id LIMIT 1),
-             (SELECT display_name FROM menu       WHERE id = ae.menu_id   LIMIT 1),
-             (SELECT display_name FROM event      WHERE id = ae.event_id  LIMIT 1),
-             (SELECT display_name FROM vendor     WHERE id = ae.vendor_id LIMIT 1)
-           ) AS page_name
+           ${pageNameExpr}                                             AS page_name
          FROM analytics_event ae
-         WHERE ae.vendor_id = :vendorId
+         WHERE ${scopeClause}
            AND ae.created_at BETWEEN :from AND :to
          ORDER BY ae.created_at DESC
          LIMIT ${limit} OFFSET ${offset}`,
@@ -579,7 +712,7 @@ export const AnalyticsRepo = {
       sequelize.query<{ total: string }>(
         `SELECT COUNT(*) AS total
          FROM analytics_event ae
-         WHERE ae.vendor_id = :vendorId
+         WHERE ${scopeClause}
            AND ae.created_at BETWEEN :from AND :to`,
         { replacements: repl, type: QueryTypes.SELECT }
       ),
@@ -593,6 +726,7 @@ export const AnalyticsRepo = {
         actionType: r.action_type,
         deviceType: r.device_type ?? 'unknown',
         sessionId: r.session_id,
+        phone: r.phone ?? null,
         referrer: r.referrer ?? null,
         qrHash: r.qr_hash ?? null,
         pageName: r.page_name ?? null,
