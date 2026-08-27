@@ -305,7 +305,7 @@ export const AdminService = {
       vendorId,
       name,
       displayName: requireText(body.displayName, 'Event display name'),
-      eventDescription: body.eventDescription?.trim() || null,
+      eventDescription: body.eventDescription?.trim() ?? '',
       startTime: optionalDate(body.startTime),
       endTime: optionalDate(body.endTime),
     };
@@ -328,7 +328,7 @@ export const AdminService = {
       vendorId,
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Event display name') : event.displayName,
-      eventDescription: body.eventDescription?.trim() || null,
+      eventDescription: body.eventDescription?.trim() ?? '',
       startTime: optionalDate(body.startTime) ?? null,
       endTime: optionalDate(body.endTime) ?? null,
     };
