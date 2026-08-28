@@ -139,4 +139,13 @@ export const AnalyticsQueryService = {
     const f = buildDateRange(range, vendorId);
     return AnalyticsRepo.scansByEvent(f);
   },
+
+  /** Paginated raw event log — powers the "Activity Log" drill-down (EventLog.vue) */
+  async getEventLog(
+    filter: { from: Date; to: Date; vendorId?: number; eventId?: number; itemId?: number },
+    limit: number,
+    offset: number
+  ) {
+    return AnalyticsRepo.eventLog(filter, limit, offset);
+  },
 };

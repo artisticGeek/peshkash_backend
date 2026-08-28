@@ -365,6 +365,64 @@ export const AnalyticsRepo = {
   },
 
   /**
+   * Paginated raw event log — powers the "Activity Log" / "Event Log" drill-down UI.
+   * Scoped to exactly one of vendorId/eventId/itemId (caller decides which applies).
+   * Note: there's no session/visitor identity tracking in this schema (no session_id or
+   * per-event phone column — the phone column on the vendor model is unrelated), so those
+   * fields aren't populated here; the frontend already renders them as optional.
+   */
+  eventLog: async (
+    f: { from: Date; to: Date; vendorId?: number; eventId?: number; itemId?: number },
+    limit: number,
+    offset: number
+  ): Promise<{
+    rows: Array<{
+      id: number; createdAt: string; eventType: string; actionType: string | null;
+      deviceType: string | null; referrer: string | null; qrHash: string | null; pageUrl: string | null;
+    }>;
+    total: number;
+  }> => {
+    const whereClauses = ['created_at BETWEEN :from AND :to'];
+    if (f.vendorId) whereClauses.push('vendor_id = :vendorId');
+    if (f.eventId)  whereClauses.push('event_id = :eventId');
+    if (f.itemId)   whereClauses.push('item_id = :itemId');
+    const where = whereClauses.join(' AND ');
+    const replacements = { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, itemId: f.itemId, limit, offset };
+
+    const [rows, countRows] = await Promise.all([
+      sequelize.query<{
+        id: number; created_at: string; event_type: string; action_type: string | null;
+        device_type: string | null; referrer: string | null; qr_hash: string | null; page_url: string | null;
+      }>(
+        `SELECT id, created_at, event_type, action_type, device_type, referrer, qr_hash, page_url
+         FROM analytics_event
+         WHERE ${where}
+         ORDER BY created_at DESC
+         LIMIT :limit OFFSET :offset`,
+        { replacements, type: QueryTypes.SELECT }
+      ),
+      sequelize.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM analytics_event WHERE ${where}`,
+        { replacements, type: QueryTypes.SELECT }
+      ),
+    ]);
+
+    return {
+      rows: rows.map(r => ({
+        id: r.id,
+        createdAt: r.created_at,
+        eventType: r.event_type,
+        actionType: r.action_type,
+        deviceType: r.device_type,
+        referrer: r.referrer,
+        qrHash: r.qr_hash,
+        pageUrl: r.page_url,
+      })),
+      total: Number(countRows[0]?.count ?? 0),
+    };
+  },
+
+  /**
    * Per-item action breakdown for a specific event — the "Excel view".
    * Returns every item that had any action in the period, with column-per-action-type counts.
    * No LIMIT — callers get the full set.
