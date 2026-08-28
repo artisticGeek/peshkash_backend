@@ -13,7 +13,6 @@ analyticsRouter.get('/events/:eventId',          requireRole('admin', 'vendor'),
 analyticsRouter.get('/items',                    requireRole('admin', 'vendor'), AnalyticsController.getTopItems);
 analyticsRouter.get('/items/:itemId',            requireRole('admin', 'vendor'), AnalyticsController.getItemAnalytics);
 analyticsRouter.get('/events-leaderboard',       requireRole('admin', 'vendor'), AnalyticsController.getEventLeaderboard);
-analyticsRouter.get('/event-log',                requireRole('admin', 'vendor'), AnalyticsController.getEventLog);
 
 // Raw export — enriched JSON for one vendor's events; vendor scoping inside handler
 analyticsRouter.get('/export/vendor/:vendorId', requireRole('admin', 'vendor'), AnalyticsController.exportVendorRaw);

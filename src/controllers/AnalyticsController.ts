@@ -164,34 +164,6 @@ export const AnalyticsController = {
   },
 
   /**
-   * GET /api/analytics/event-log?vendorId=&eventId=&itemId=&from=&to=&limit=&offset=
-   * Exactly one of vendorId/eventId/itemId is expected — whichever scope the caller is drilled
-   * into (matches EventLog.vue, which sends eventId if present, else itemId, else vendorId).
-   */
-  getEventLog: async (req: Request, res: Response) => {
-    try {
-      const vendorId = parseVendorId(req.query.vendorId);
-      const eventId  = parseVendorId(req.query.eventId);
-      const itemId   = parseVendorId(req.query.itemId);
-
-      const to   = req.query.to   ? new Date(req.query.to as string)   : new Date();
-      const from = req.query.from ? new Date(req.query.from as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-        return res.status(400).json({ error: 'Invalid date range' });
-      }
-
-      const limit  = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-      const offset = Math.max(0, Number(req.query.offset) || 0);
-
-      const data = await AnalyticsQueryService.getEventLog({ from, to, vendorId, eventId, itemId }, limit, offset);
-      return res.json(data);
-    } catch (err) {
-      console.error('[Analytics] getEventLog error:', err);
-      return res.status(500).json({ error: 'Analytics unavailable' });
-    }
-  },
-
-  /**
    * GET /api/analytics/export/vendor/:vendorId?from=YYYY-MM-DD&to=YYYY-MM-DD
    *
    * Returns a JSON array of raw, enriched analytics events for the given vendor.

@@ -1,5 +1,4 @@
 import { Op, fn, col, literal, QueryTypes } from 'sequelize';
-import { createHash } from 'crypto';
 import { AnalyticsEvent } from '../models/analyticsEvent.model';
 import { sequelize } from '../config/sequelize';
 
@@ -469,73 +468,6 @@ export const AnalyticsRepo = {
       { replacements: { itemId }, type: QueryTypes.SELECT }
     );
     return rows.map(r => r.qr_hash);
-  },
-
-  /**
-   * Paginated raw event log — powers the "Activity Log" / "Event Log" drill-down UI.
-   * Scoped to exactly one of vendorId/eventId/itemId (caller decides which applies).
-   *
-   * sessionId is an 8-char hex visitor fingerprint: MD5(user_agent).slice(0, 8), computed here
-   * rather than stored — matches the original feature spec (EventLog.vue's introducing commit:
-   * "8-char session ID badge (MD5 of user agent) to group events by visitor"). It's a coarse
-   * fingerprint, not a real session (two visitors on the same browser/OS/version collide), but
-   * it's what the UI has always expected and there's no dedicated session column to use instead.
-   *
-   * There's still no phone capture anywhere in this schema (no column, and the write path in
-   * AnalyticsRecorder never accepts one) — phone stays unpopulated until that's added.
-   */
-  eventLog: async (
-    f: { from: Date; to: Date; vendorId?: number; eventId?: number; itemId?: number },
-    limit: number,
-    offset: number
-  ): Promise<{
-    rows: Array<{
-      id: number; createdAt: string; eventType: string; actionType: string | null;
-      deviceType: string | null; referrer: string | null; qrHash: string | null; pageUrl: string | null;
-      sessionId: string | null;
-    }>;
-    total: number;
-  }> => {
-    const whereClauses = ['created_at BETWEEN :from AND :to'];
-    if (f.vendorId) whereClauses.push('vendor_id = :vendorId');
-    if (f.eventId)  whereClauses.push('event_id = :eventId');
-    if (f.itemId)   whereClauses.push('item_id = :itemId');
-    const where = whereClauses.join(' AND ');
-    const replacements = { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId, itemId: f.itemId, limit, offset };
-
-    const [rows, countRows] = await Promise.all([
-      sequelize.query<{
-        id: number; created_at: string; event_type: string; action_type: string | null;
-        device_type: string | null; referrer: string | null; qr_hash: string | null; page_url: string | null;
-        user_agent: string | null;
-      }>(
-        `SELECT id, created_at, event_type, action_type, device_type, referrer, qr_hash, page_url, user_agent
-         FROM analytics_event
-         WHERE ${where}
-         ORDER BY created_at DESC
-         LIMIT :limit OFFSET :offset`,
-        { replacements, type: QueryTypes.SELECT }
-      ),
-      sequelize.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM analytics_event WHERE ${where}`,
-        { replacements, type: QueryTypes.SELECT }
-      ),
-    ]);
-
-    return {
-      rows: rows.map(r => ({
-        id: r.id,
-        createdAt: r.created_at,
-        eventType: r.event_type,
-        actionType: r.action_type,
-        deviceType: r.device_type,
-        referrer: r.referrer,
-        qrHash: r.qr_hash,
-        pageUrl: r.page_url,
-        sessionId: r.user_agent ? createHash('md5').update(r.user_agent).digest('hex').slice(0, 8) : null,
-      })),
-      total: Number(countRows[0]?.count ?? 0),
-    };
   },
 
   /**
