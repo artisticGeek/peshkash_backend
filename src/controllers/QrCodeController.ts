@@ -4,6 +4,7 @@ import { MapperUtil } from '../utils/MapperUtil';
 import { QrLinkMappingService } from '../services/QrLinkMappingService';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { QrLinkMappingRepo } from '../repositories/qrLinkMapping.repository';
+import { VendorRepo } from '../repositories/vendor.repository';
 
 export const QrMappingController = {
   getMenuByEventAndMenuName: async (req: Request, res: Response) => {
@@ -75,15 +76,37 @@ export const QrMappingController = {
       console.log(redirectionUrl.redirectionUrl);
 
       // Non-blocking scan recording — MUST NOT delay or break the response
-      QrLinkMappingRepo.getByHash(qrHash).then(mapping => {
+      QrLinkMappingRepo.getByHash(qrHash).then(async mapping => {
+        let vendorId: number | undefined = mapping?.vendorId ?? undefined;
+        let eventId:  number | undefined = mapping?.eventId  ?? undefined;
+        const resolvedUrl = mapping?.url ?? redirectionUrl.redirectionUrl;
+
+        // Infer vendorId from the redirect URL when not stored on the mapping
+        if (!vendorId) {
+          const inferred = await QrLinkMappingService.inferVendorIdFromUrl(resolvedUrl);
+          if (inferred) {
+            vendorId = inferred;
+            if (mapping) await QrLinkMappingRepo.setVendorId(mapping.id, inferred);
+          }
+        }
+
+        // Infer eventId from URL like /event/{slug} when not stored on the mapping
+        if (!eventId) {
+          const inferred = await QrLinkMappingService.inferEventIdFromUrl(resolvedUrl);
+          if (inferred) {
+            eventId = inferred;
+            if (mapping) await QrLinkMappingRepo.setEventId(mapping.id, inferred);
+          }
+        }
+
         AnalyticsRecorder.recordScan({
           qrHash,
           qrType: mapping?.type,
           qrStatus: mapping?.isActive ? 'active' : 'inactive',
           resolved: true,
           resolvedUrl: redirectionUrl.redirectionUrl,
-          vendorId: mapping?.vendorId,
-          eventId: mapping?.eventId,
+          vendorId,
+          eventId,
           req,
         });
       }).catch(() => {/* silent — analytics never blocks */});

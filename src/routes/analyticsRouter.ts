@@ -6,7 +6,9 @@ const analyticsRouter = Router();
 
 // Read endpoints — require a verified admin or vendor session
 analyticsRouter.get('/summary',                  requireRole('admin', 'vendor'), AnalyticsController.getSummary);
+analyticsRouter.get('/event-log',                requireRole('admin', 'vendor'), AnalyticsController.getEventLog);
 analyticsRouter.get('/events/:eventId/items',    requireRole('admin', 'vendor'), AnalyticsController.getEventItemsBreakdown);
+analyticsRouter.get('/events/:eventId/catalog',  requireRole('admin', 'vendor'), AnalyticsController.getEventCatalog);
 analyticsRouter.get('/events/:eventId',          requireRole('admin', 'vendor'), AnalyticsController.getEventAnalytics);
 analyticsRouter.get('/items',                    requireRole('admin', 'vendor'), AnalyticsController.getTopItems);
 analyticsRouter.get('/items/:itemId',            requireRole('admin', 'vendor'), AnalyticsController.getItemAnalytics);

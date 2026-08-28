@@ -3,6 +3,7 @@
 // See package.json scripts.
 import app, { runMigrations } from './app';
 import { startDrainLoop } from './workers/analyticsWorker';
+import { QrLinkMappingService } from './services/QrLinkMappingService';
 
 const PORT = process.env.PORT || 4000;
 
@@ -10,7 +11,8 @@ const PORT = process.env.PORT || 4000;
 // Run migrations to completion BEFORE accepting traffic so that Render's
 // health-check probe and the very first real requests never hit missing columns.
 runMigrations()
-  .then(() => {
+  .then(async () => {
+    await QrLinkMappingService.backfillVendorIds();
     startDrainLoop();
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);

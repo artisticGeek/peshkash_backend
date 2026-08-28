@@ -31,6 +31,7 @@ export interface ActionPayload {
   itemId?: number;
   qrHash?: string;
   pageUrl?: string;
+  phone?: string;
 }
 
 /**
@@ -76,6 +77,7 @@ export const AnalyticsRecorder = {
       deviceType: parseDeviceType(ua as string),
       userAgent:  (ua as string).slice(0, 500),
       pageUrl:    payload.pageUrl?.slice(0, 2000),
+      phone:      payload.phone?.slice(0, 20),
     };
 
     AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
