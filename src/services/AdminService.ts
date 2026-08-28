@@ -305,7 +305,7 @@ export const AdminService = {
       vendorId,
       name,
       displayName: requireText(body.displayName, 'Event display name'),
-      eventDescription: body.eventDescription?.trim() || null,
+      eventDescription: body.eventDescription?.trim() ?? '',
       startTime: optionalDate(body.startTime),
       endTime: optionalDate(body.endTime),
     };
@@ -328,7 +328,7 @@ export const AdminService = {
       vendorId,
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Event display name') : event.displayName,
-      eventDescription: body.eventDescription?.trim() || null,
+      eventDescription: body.eventDescription?.trim() ?? '',
       startTime: optionalDate(body.startTime) ?? null,
       endTime: optionalDate(body.endTime) ?? null,
     };
@@ -756,6 +756,11 @@ export const AdminService = {
       widthMm: Number(body.widthMm) || 85,
       heightMm: Number(body.heightMm) || 54,
       elements: body.elements ?? [],
+      vendorId: body.vendorId ? Number(body.vendorId) : null,
+      settings: body.settings ?? null,
+      libraryTemplateId: body.libraryTemplateId ?? null,
+      qrStyle: body.qrStyle ?? null,
+      theme: body.theme ?? null,
     } as any),
 
   updateQrTemplate: async (id: number, body: any) => {
@@ -766,6 +771,11 @@ export const AdminService = {
       widthMm: body.widthMm != null ? Number(body.widthMm) : tpl.widthMm,
       heightMm: body.heightMm != null ? Number(body.heightMm) : tpl.heightMm,
       elements: body.elements ?? tpl.elements,
+      vendorId: body.vendorId !== undefined ? (Number(body.vendorId) || null) : tpl.vendorId,
+      settings: body.settings !== undefined ? (body.settings ?? null) : tpl.settings,
+      libraryTemplateId: body.libraryTemplateId ?? tpl.libraryTemplateId,
+      qrStyle: body.qrStyle ?? tpl.qrStyle,
+      theme: body.theme ?? tpl.theme,
     });
     return tpl;
   },

@@ -52,8 +52,14 @@ router.get('/preview/menu', AdminController.buildMenuPath);
 router.get('/preview/item', AdminController.buildItemPath);
 
 // Admin user management — only accessible by admins
-router.get('/admin-users',         requireRole('admin'), AuthController.listAdminUsers);
-router.post('/admin-users',        requireRole('admin'), AuthController.addAdminUser);
+router.get('/admin-users',           requireRole('admin'), AuthController.listAdminUsers);
+router.post('/admin-users',          requireRole('admin'), AuthController.addAdminUser);
 router.delete('/admin-users/:phone', requireRole('admin'), AuthController.removeAdminUser);
+
+// Session invalidation — force specific users or everyone to re-authenticate
+router.get('/session/invalidations',           requireRole('admin'), AdminController.listSessionInvalidations);
+router.post('/session/force-logout',           requireRole('admin'), AdminController.forceLogout);
+router.post('/session/force-logout-all',       requireRole('admin'), AdminController.forceLogoutAll);
+router.delete('/session/invalidations/:phone', requireRole('admin'), AdminController.clearSessionInvalidation);
 
 export default router;

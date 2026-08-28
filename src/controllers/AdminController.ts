@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { QueryTypes } from 'sequelize';
+import { sequelize } from '../config/sequelize';
 import { AdminService } from '../services/AdminService';
 
 function getOrigin(req: Request) {
@@ -91,4 +93,61 @@ export const AdminController = {
       res,
       AdminService.buildItemPath(Number(req.query.eventId), Number(req.query.itemId), { origin: getOrigin(req) })
     ),
+
+  // ── Session invalidation ────────────────────────────────────────────────────
+
+  listSessionInvalidations: async (_req: Request, res: Response) => {
+    try {
+      const rows = await sequelize.query(
+        `SELECT phone, invalidate_before, created_at FROM session_invalidation ORDER BY created_at DESC`,
+        { type: QueryTypes.SELECT },
+      );
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+
+  forceLogout: async (req: Request, res: Response) => {
+    const phone = String(req.body?.phone ?? '').trim();
+    if (!phone) { res.status(400).json({ message: 'phone is required' }); return; }
+    try {
+      await sequelize.query(
+        `INSERT INTO session_invalidation (phone, invalidate_before)
+         VALUES (:phone, NOW())
+         ON CONFLICT (phone) DO UPDATE SET invalidate_before = NOW(), created_at = NOW()`,
+        { replacements: { phone }, type: QueryTypes.INSERT },
+      );
+      res.json({ ok: true, phone });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+
+  forceLogoutAll: async (_req: Request, res: Response) => {
+    try {
+      await sequelize.query(
+        `INSERT INTO session_invalidation (phone, invalidate_before)
+         VALUES ('__global__', NOW())
+         ON CONFLICT (phone) DO UPDATE SET invalidate_before = NOW(), created_at = NOW()`,
+        { type: QueryTypes.INSERT },
+      );
+      res.json({ ok: true, scope: 'all' });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+
+  clearSessionInvalidation: async (req: Request, res: Response) => {
+    const phone = decodeURIComponent(req.params.phone ?? '');
+    try {
+      await sequelize.query(
+        `DELETE FROM session_invalidation WHERE phone = :phone`,
+        { replacements: { phone }, type: QueryTypes.DELETE },
+      );
+      res.json({ ok: true, phone });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  },
 };

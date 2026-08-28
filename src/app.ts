@@ -11,6 +11,8 @@ import { AnalyticsQueue } from './services/AnalyticsQueue';
 
 const app = express();
 
+app.disable('x-powered-by');
+app.use((_req, res, next) => { res.setHeader('X-App', 'Peshkash'); next(); });
 app.use(cors());
 app.use(express.json());
 
@@ -68,6 +70,7 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS qr_status     VARCHAR(50)`).catch(() => {});
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved      BOOLEAN`).catch(() => {});
   await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS resolved_url  TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS phone         VARCHAR(20)`).catch(() => {});
 
   // line_item — rich-content columns added after initial schema
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS display_name  TEXT`).catch(() => {});
@@ -96,6 +99,15 @@ export async function runMigrations(): Promise<void> {
       { replacements: { phone: seedPhone } }
     ).catch(() => {});
   }
+
+  // Session invalidation — force-logout specific phones or all users
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS session_invalidation (
+      phone             VARCHAR(50) PRIMARY KEY,
+      invalidate_before TIMESTAMPTZ NOT NULL,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
 
   // App config table — runtime settings editable directly in the DB
   await sequelize.query(`
