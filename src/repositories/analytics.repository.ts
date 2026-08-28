@@ -1,4 +1,5 @@
 import { Op, fn, col, literal, QueryTypes } from 'sequelize';
+import { createHash } from 'crypto';
 import { AnalyticsEvent } from '../models/analyticsEvent.model';
 import { sequelize } from '../config/sequelize';
 
@@ -367,9 +368,15 @@ export const AnalyticsRepo = {
   /**
    * Paginated raw event log — powers the "Activity Log" / "Event Log" drill-down UI.
    * Scoped to exactly one of vendorId/eventId/itemId (caller decides which applies).
-   * Note: there's no session/visitor identity tracking in this schema (no session_id or
-   * per-event phone column — the phone column on the vendor model is unrelated), so those
-   * fields aren't populated here; the frontend already renders them as optional.
+   *
+   * sessionId is an 8-char hex visitor fingerprint: MD5(user_agent).slice(0, 8), computed here
+   * rather than stored — matches the original feature spec (EventLog.vue's introducing commit:
+   * "8-char session ID badge (MD5 of user agent) to group events by visitor"). It's a coarse
+   * fingerprint, not a real session (two visitors on the same browser/OS/version collide), but
+   * it's what the UI has always expected and there's no dedicated session column to use instead.
+   *
+   * There's still no phone capture anywhere in this schema (no column, and the write path in
+   * AnalyticsRecorder never accepts one) — phone stays unpopulated until that's added.
    */
   eventLog: async (
     f: { from: Date; to: Date; vendorId?: number; eventId?: number; itemId?: number },
@@ -379,6 +386,7 @@ export const AnalyticsRepo = {
     rows: Array<{
       id: number; createdAt: string; eventType: string; actionType: string | null;
       deviceType: string | null; referrer: string | null; qrHash: string | null; pageUrl: string | null;
+      sessionId: string | null;
     }>;
     total: number;
   }> => {
@@ -393,8 +401,9 @@ export const AnalyticsRepo = {
       sequelize.query<{
         id: number; created_at: string; event_type: string; action_type: string | null;
         device_type: string | null; referrer: string | null; qr_hash: string | null; page_url: string | null;
+        user_agent: string | null;
       }>(
-        `SELECT id, created_at, event_type, action_type, device_type, referrer, qr_hash, page_url
+        `SELECT id, created_at, event_type, action_type, device_type, referrer, qr_hash, page_url, user_agent
          FROM analytics_event
          WHERE ${where}
          ORDER BY created_at DESC
@@ -417,6 +426,7 @@ export const AnalyticsRepo = {
         referrer: r.referrer,
         qrHash: r.qr_hash,
         pageUrl: r.page_url,
+        sessionId: r.user_agent ? createHash('md5').update(r.user_agent).digest('hex').slice(0, 8) : null,
       })),
       total: Number(countRows[0]?.count ?? 0),
     };
