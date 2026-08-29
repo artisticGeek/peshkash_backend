@@ -47,6 +47,16 @@ router.post('/qr-templates', AdminController.createQrTemplate);
 router.put('/qr-templates/:id', AdminController.updateQrTemplate);
 router.delete('/qr-templates/:id', AdminController.deleteQrTemplate);
 
+// Design Studio API. These routes use the same persistence during the migration away from the
+// legacy QR-template element array, so QR Bank and Studio cannot drift into separate systems.
+router.get('/designs', AdminController.listQrTemplates);
+router.post('/designs', AdminController.createQrTemplate);
+router.get('/designs/:id', AdminController.getQrTemplate);
+router.put('/designs/:id', AdminController.updateQrTemplate);
+router.post('/designs/:id/duplicate', AdminController.duplicateQrTemplate);
+router.post('/designs/:id/validate', AdminController.validateQrTemplate);
+router.delete('/designs/:id', AdminController.deleteQrTemplate);
+
 router.get('/previews', AdminController.getPreviews);
 router.get('/preview/menu', AdminController.buildMenuPath);
 router.get('/preview/item', AdminController.buildItemPath);

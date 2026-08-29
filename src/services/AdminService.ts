@@ -9,6 +9,24 @@ import { QrTemplate } from '../models/qrTemplate.model';
 import { Vendor } from '../models/vendor.model';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const QR_LIBRARY_TEMPLATE_IDS = new Set([
+  'contact-card-creative', 'contact-card-professional', 'contact-card-maker', 'portfolio-postcard',
+  'social-follow-card', 'artist-artwork-tag', 'painter-title-card', 'exhibition-wall-label',
+  'gallery-takeaway-card', 'museum-object-label', 'craft-market-tag', 'product-sticker-square',
+  'product-sticker-round', 'product-care-card', 'packaging-insert', 'jewellery-authenticity-card',
+  'furniture-product-tag', 'baker-box-sticker', 'caterer-menu-card', 'restaurant-table-menu',
+  'cafe-counter-plate', 'food-stall-sign', 'salon-booking-card', 'studio-booking-plate',
+  'repair-service-tag', 'tutor-class-flyer', 'event-checkin-pass', 'wedding-vendor-card',
+  'real-estate-property-card', 'exhibition-entry-card',
+]);
+const QR_STYLES = new Set(['obsidian-ring', 'porcelain-cameo']);
+const QR_THEMES = new Set(['light', 'dark']);
+const APPROVED_QR_HOSTS = new Set(
+  (process.env.PESHKASH_QR_HOSTS || 'peshkash.app,www.peshkash.app,pksh.in,pksh.example')
+    .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean),
+);
+
+type StudioActor = { role: string; vendorId?: number | null };
 
 type UrlContext = {
   origin: string;
@@ -67,8 +85,51 @@ function notFound(message: string) {
   return Object.assign(new Error(message), { status: 404 });
 }
 
+function forbidden(message: string) {
+  return Object.assign(new Error(message), { status: 403 });
+}
+
 function conflict(message: string) {
   return Object.assign(new Error(message), { status: 409 });
+}
+
+function isKnownTemplateId(value: string): boolean {
+  return QR_LIBRARY_TEMPLATE_IDS.has(value) || /^custom-[a-z0-9-]+$/i.test(value);
+}
+
+function actorVendorId(actor?: StudioActor, requested?: unknown): number | null {
+  if (actor?.role === 'vendor') {
+    const id = Number(actor.vendorId);
+    if (!Number.isFinite(id) || id <= 0) throw forbidden('Vendor workspace is missing from this session');
+    return id;
+  }
+  const id = Number(requested);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function assertApprovedDestination(settings: unknown, document?: unknown): void {
+  const settingsDestination = settings && typeof settings === 'object'
+    ? (settings as Record<string, unknown>).destination
+    : undefined;
+  const pages = document && typeof document === 'object'
+    ? (document as Record<string, any>).pages
+    : undefined;
+  const documentDestination = Array.isArray(pages) && pages[0]?.copy
+    ? pages[0].copy.destination
+    : undefined;
+  const destination = String(settingsDestination || documentDestination || '').trim();
+  if (!destination) return;
+  let url: URL;
+  try { url = new URL(destination); } catch { throw badRequest('QR destination must be a valid URL'); }
+  if (url.protocol !== 'https:') throw badRequest('QR destination must use HTTPS');
+  if (!APPROVED_QR_HOSTS.has(url.hostname.toLowerCase())) throw badRequest('QR destination must use an approved Peshkash host');
+}
+
+function assertTemplateWritable(template: QrTemplate, actor?: StudioActor): void {
+  if (actor?.role !== 'vendor') return;
+  if (!template.vendorId || Number(template.vendorId) !== Number(actor.vendorId)) {
+    throw forbidden('This design belongs to another workspace or is a protected library preset');
+  }
 }
 
 function requireSlug(value: unknown, field: string) {
@@ -747,42 +808,118 @@ export const AdminService = {
     return { path, publicUrl: `${ctx.origin}${path}` };
   },
 
-  listQrTemplates: () =>
-    QrTemplate.findAll({ order: [['updatedAt', 'DESC']] }),
+  listQrTemplates: (actor?: StudioActor) =>
+    QrTemplate.findAll({
+      where: actor?.role === 'vendor'
+        ? { [Op.or]: [{ vendorId: Number(actor.vendorId) }, { vendorId: null }] }
+        : undefined,
+      order: [['updatedAt', 'DESC']],
+    }),
 
-  createQrTemplate: (body: any) =>
-    QrTemplate.create({
+  getQrTemplate: async (id: number, actor?: StudioActor) => {
+    const template = await QrTemplate.findByPk(id);
+    if (!template) throw notFound('Design not found');
+    if (actor?.role === 'vendor' && template.vendorId !== null && Number(template.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This design belongs to another workspace');
+    }
+    return template;
+  },
+
+  createQrTemplate: (body: any, actor?: StudioActor) => {
+    const libraryTemplateId = String(body.libraryTemplateId || '');
+    const qrStyle = String(body.qrStyle || 'obsidian-ring');
+    const theme = String(body.theme || 'light');
+    if (!isKnownTemplateId(libraryTemplateId)) throw badRequest('Unknown QR Studio library template');
+    if (!QR_STYLES.has(qrStyle)) throw badRequest('Unknown QR signature');
+    if (!QR_THEMES.has(theme)) throw badRequest('Unknown template theme');
+    assertApprovedDestination(body.settings, body.document);
+    return QrTemplate.create({
       name: body.name || 'Untitled Template',
       widthMm: Number(body.widthMm) || 85,
       heightMm: Number(body.heightMm) || 54,
       elements: body.elements ?? [],
-      vendorId: body.vendorId ? Number(body.vendorId) : null,
-      settings: body.settings ?? null,
-      libraryTemplateId: body.libraryTemplateId ?? null,
-      qrStyle: body.qrStyle ?? null,
-      theme: body.theme ?? null,
-    } as any),
+      vendorId: actorVendorId(actor, body.vendorId),
+      libraryTemplateId,
+      manifestVersion: String(body.manifestVersion || '3.1.0').slice(0, 20),
+      qrStyle,
+      theme,
+      settings: body.settings && typeof body.settings === 'object' ? body.settings : {},
+      schemaVersion: String(body.schemaVersion || '1.0.0').slice(0, 20),
+      document: body.document && typeof body.document === 'object' ? body.document : null,
+      revision: 1,
+      previewThumbnail: typeof body.previewThumbnail === 'string' ? body.previewThumbnail : null,
+    } as any);
+  },
 
-  updateQrTemplate: async (id: number, body: any) => {
+  updateQrTemplate: async (id: number, body: any, actor?: StudioActor) => {
     const tpl = await QrTemplate.findByPk(id);
     if (!tpl) throw notFound('Template not found');
+    assertTemplateWritable(tpl, actor);
+    if (body.revision != null && Number(body.revision) !== tpl.revision) {
+      throw conflict('This design was updated in another tab. Reload before saving again.');
+    }
+    if (body.libraryTemplateId != null && !isKnownTemplateId(String(body.libraryTemplateId))) throw badRequest('Unknown QR Studio library template');
+    if (body.qrStyle != null && !QR_STYLES.has(String(body.qrStyle))) throw badRequest('Unknown QR signature');
+    if (body.theme != null && !QR_THEMES.has(String(body.theme))) throw badRequest('Unknown template theme');
+    assertApprovedDestination(body.settings, body.document);
     await tpl.update({
       name: body.name ?? tpl.name,
       widthMm: body.widthMm != null ? Number(body.widthMm) : tpl.widthMm,
       heightMm: body.heightMm != null ? Number(body.heightMm) : tpl.heightMm,
       elements: body.elements ?? tpl.elements,
-      vendorId: body.vendorId !== undefined ? (Number(body.vendorId) || null) : tpl.vendorId,
-      settings: body.settings !== undefined ? (body.settings ?? null) : tpl.settings,
+      vendorId: actor?.role === 'vendor' ? tpl.vendorId : (body.vendorId !== undefined ? actorVendorId(actor, body.vendorId) : tpl.vendorId),
       libraryTemplateId: body.libraryTemplateId ?? tpl.libraryTemplateId,
+      manifestVersion: body.manifestVersion ?? tpl.manifestVersion,
       qrStyle: body.qrStyle ?? tpl.qrStyle,
       theme: body.theme ?? tpl.theme,
+      settings: body.settings ?? tpl.settings,
+      schemaVersion: body.schemaVersion ?? tpl.schemaVersion,
+      document: body.document ?? tpl.document,
+      revision: tpl.revision + 1,
+      previewThumbnail: body.previewThumbnail ?? tpl.previewThumbnail,
     });
     return tpl;
   },
 
-  deleteQrTemplate: async (id: number) => {
+  duplicateQrTemplate: async (id: number, body: any, actor?: StudioActor) => {
+    const source = await QrTemplate.findByPk(id);
+    if (!source) throw notFound('Design not found');
+    if (actor?.role === 'vendor' && source.vendorId !== null && Number(source.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This design belongs to another workspace');
+    }
+    return QrTemplate.create({
+      name: String(body?.name || `${source.name} copy`).slice(0, 120),
+      widthMm: source.widthMm,
+      heightMm: source.heightMm,
+      elements: source.elements,
+      vendorId: actorVendorId(actor, source.vendorId),
+      libraryTemplateId: source.libraryTemplateId,
+      manifestVersion: source.manifestVersion,
+      qrStyle: source.qrStyle,
+      theme: source.theme,
+      settings: source.settings,
+      schemaVersion: source.schemaVersion,
+      document: source.document,
+      revision: 1,
+      previewThumbnail: source.previewThumbnail,
+    } as any);
+  },
+
+  validateQrTemplate: async (id: number, actor?: StudioActor) => {
+    const tpl = await AdminService.getQrTemplate(id, actor);
+    const settings = (tpl.settings || {}) as Record<string, unknown>;
+    const errors: string[] = [];
+    try { assertApprovedDestination(settings, tpl.document); } catch (error: any) { errors.push(error.message); }
+    if (!isKnownTemplateId(String(tpl.libraryTemplateId || ''))) errors.push('Unknown source template');
+    if (!QR_STYLES.has(String(tpl.qrStyle || ''))) errors.push('Unknown QR signature');
+    if (!QR_THEMES.has(String(tpl.theme || ''))) errors.push('Unknown template theme');
+    return { valid: errors.length === 0, errors, revision: tpl.revision };
+  },
+
+  deleteQrTemplate: async (id: number, actor?: StudioActor) => {
     const tpl = await QrTemplate.findByPk(id);
     if (!tpl) throw notFound('Template not found');
+    assertTemplateWritable(tpl, actor);
     await tpl.destroy();
     return { ok: true };
   },

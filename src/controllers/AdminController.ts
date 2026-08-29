@@ -7,6 +7,10 @@ function getOrigin(req: Request) {
   return process.env.PUBLIC_APP_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
 }
 
+function studioActor(req: Request) {
+  return { role: req.user?.role || 'customer', vendorId: req.user?.vendorId };
+}
+
 function handle(res: Response, promise: Promise<any>, status = 200) {
   promise
     .then((data) => res.status(status).json(data))
@@ -63,12 +67,18 @@ export const AdminController = {
   getOrCreateEventQr: (req: Request, res: Response) =>
     handle(res, AdminService.getOrCreateEventQr(Number(req.params.eventId), { origin: getOrigin(req) }), 201),
 
-  listQrTemplates: (_req: Request, res: Response) => handle(res, AdminService.listQrTemplates()),
-  createQrTemplate: (req: Request, res: Response) => handle(res, AdminService.createQrTemplate(req.body), 201),
+  listQrTemplates: (req: Request, res: Response) => handle(res, AdminService.listQrTemplates(studioActor(req))),
+  getQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.getQrTemplate(Number(req.params.id), studioActor(req))),
+  createQrTemplate: (req: Request, res: Response) => handle(res, AdminService.createQrTemplate(req.body, studioActor(req)), 201),
   updateQrTemplate: (req: Request, res: Response) =>
-    handle(res, AdminService.updateQrTemplate(Number(req.params.id), req.body)),
+    handle(res, AdminService.updateQrTemplate(Number(req.params.id), req.body, studioActor(req))),
+  duplicateQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.duplicateQrTemplate(Number(req.params.id), req.body, studioActor(req)), 201),
+  validateQrTemplate: (req: Request, res: Response) =>
+    handle(res, AdminService.validateQrTemplate(Number(req.params.id), studioActor(req))),
   deleteQrTemplate: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteQrTemplate(Number(req.params.id))),
+    handle(res, AdminService.deleteQrTemplate(Number(req.params.id), studioActor(req))),
 
   deleteVendor: (req: Request, res: Response) =>
     handle(res, AdminService.deleteVendor(Number(req.params.vendorId))),

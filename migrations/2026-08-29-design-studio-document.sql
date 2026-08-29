@@ -1,0 +1,11 @@
+BEGIN;
+
+ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS schema_version TEXT NOT NULL DEFAULT '1.0.0';
+ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS document JSONB;
+ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS preview_thumbnail TEXT;
+ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS vendor_id BIGINT REFERENCES vendor(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_qr_templates_vendor_id ON qr_templates(vendor_id);
+
+COMMIT;
