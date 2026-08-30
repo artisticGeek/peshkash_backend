@@ -5,15 +5,13 @@ import { Event } from '../models/event.model';
 import { Vendor } from '../models/vendor.model';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 
-function publicVendor(vendor: Vendor | undefined, contactVisible: boolean) {
+function publicVendor(vendor: Vendor | undefined) {
   if (!vendor) return null;
   return {
     id: Number(vendor.id),
     name: vendor.name,
     displayName: vendor.displayName,
-    description: vendor.description,
     logoUrl: vendor.logoUrl ?? null,
-    ...(contactVisible ? { contact: vendor.contact ?? [], address: vendor.address } : {}),
   };
 }
 
@@ -60,7 +58,7 @@ export const EventExperienceController = {
         preview,
         registrationOpen: !preview && config.registrationEnabled !== false && !hasEnded,
         experience: config,
-        organizer: config.organizerVisible === false ? null : publicVendor(event.vendor, Boolean(config.contactVisible)),
+        organizer: config.organizerVisible === false ? null : publicVendor(event.vendor),
         registered,
       });
     } catch (error) {
