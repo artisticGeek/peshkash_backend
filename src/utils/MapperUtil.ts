@@ -15,6 +15,7 @@ function mapLineItemsRecursively(
 ): LineItemDTO[] {
   return items
     .filter(item => item.parentId === parentId)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
     .map(item => {
       if (!item.type) {
         throw new Error(`LineItem with id ${item.id} is missing a type`);
@@ -38,6 +39,12 @@ function mapLineItemsRecursively(
         itemType: item.type,
         enumType: item.enumType,
         image: item.image ?? null,
+        sortOrder: item.sortOrder ?? 0,
+        price: item.price,
+        tags: item.tags ?? [],
+        allergens: item.allergens ?? [],
+        isVeg: item.isVeg,
+        spiceLevel: item.spiceLevel,
         subCategoryLineItems: subItems,
       };
     })
@@ -82,6 +89,11 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
     menu: getMenuSummary(mapping.menu),
     ingredients: targetItem.ingredients,
     image: targetItem.image,
+    price: targetItem.price,
+    tags: targetItem.tags ?? [],
+    allergens: targetItem.allergens ?? [],
+    isVeg: targetItem.isVeg,
+    spiceLevel: targetItem.spiceLevel,
     parentItems: parentItems.map(p => ({
       id: p.id,
       name: p.name,

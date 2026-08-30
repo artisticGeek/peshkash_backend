@@ -39,16 +39,18 @@ async function normalizeDestination(url: string) {
 
 export const QrLinkMappingService = {
 
-    /**
-     * Infer a vendorId from a URL path like /vendor/{slug}.
-     * Returns the vendor's numeric id, or undefined if no match.
-     */
+    /** Infer the owning vendor from either a vendor card or event/menu/item path. */
     inferVendorIdFromUrl: async (url: string | undefined): Promise<number | undefined> => {
         if (!url) return undefined;
-        const m = url.match(/\/vendor\/([^/?#]+)/);
-        if (!m) return undefined;
-        const vendor = await VendorRepo.getByName(m[1]);
-        return vendor?.id ?? undefined;
+        const vendorMatch = url.match(/\/vendor\/([^/?#]+)/);
+        if (vendorMatch) {
+            const vendor = await VendorRepo.getByName(vendorMatch[1]);
+            return vendor?.id ?? undefined;
+        }
+        const eventMatch = url.match(/\/event\/([^/?#]+)/);
+        if (!eventMatch) return undefined;
+        const event = await Event.findOne({ where: { name: eventMatch[1] }, attributes: ['vendorId'] });
+        return event?.vendorId ?? undefined;
     },
 
     /**
@@ -72,7 +74,10 @@ export const QrLinkMappingService = {
             const mappings = await QrLinkMappingRepo.findWithNullVendorId();
             let updated = 0;
             for (const m of mappings) {
-                const vendorId = await QrLinkMappingService.inferVendorIdFromUrl(m.url);
+                const linkedEvent = m.eventId
+                    ? await Event.findByPk(m.eventId, { attributes: ['vendorId'] })
+                    : null;
+                const vendorId = linkedEvent?.vendorId ?? await QrLinkMappingService.inferVendorIdFromUrl(m.url);
                 if (vendorId) {
                     await QrLinkMappingRepo.setVendorId(m.id, vendorId);
                     updated++;

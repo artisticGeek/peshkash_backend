@@ -235,6 +235,12 @@ function cleanItem(item: LineItem) {
     type: item.type,
     enumType: item.enumType,
     isActive: item.isActive,
+    sortOrder: item.sortOrder ?? 0,
+    price: item.price,
+    tags: item.tags ?? [],
+    allergens: item.allergens ?? [],
+    isVeg: item.isVeg,
+    spiceLevel: item.spiceLevel,
     menuId: item.menuId,
     parentId: item.parentId,
     createdAt: item.createdAt,
@@ -574,7 +580,7 @@ export const AdminService = {
 
   listItems: async (menuId?: number) => {
     const where = menuId ? { menuId } : {};
-    const items = await LineItem.findAll({ where, include: [Menu], order: [['createdAt', 'DESC']] });
+    const items = await LineItem.findAll({ where, include: [Menu], order: [['menuId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']] });
     return items.map(cleanItem);
   },
 
@@ -600,6 +606,12 @@ export const AdminService = {
       type: body.type?.trim() || 'item',
       enumType: body.enumType?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+      sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
+      price: body.price?.trim() || null,
+      tags: Array.isArray(body.tags) ? body.tags.map(String).map((value: string) => value.trim()).filter(Boolean) : [],
+      allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : [],
+      isVeg: typeof body.isVeg === 'boolean' ? body.isVeg : null,
+      spiceLevel: Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : null,
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
     return cleanItem(item);
@@ -618,7 +630,11 @@ export const AdminService = {
     if (body.parentId) {
       const parent = await LineItem.findOne({ where: { id: Number(body.parentId), menuId } });
       if (!parent) throw badRequest('Parent item must belong to the same menu');
-      if (Number(body.parentId) === id) throw badRequest('An item cannot be its own parent');
+      let cursor: LineItem | null = parent;
+      while (cursor) {
+        if (cursor.id === id) throw badRequest('An item cannot be moved inside itself or one of its descendants');
+        cursor = cursor.parentId ? await LineItem.findByPk(cursor.parentId) : null;
+      }
     }
     await item.update({
       menuId,
@@ -630,6 +646,12 @@ export const AdminService = {
       type: body.type?.trim() || item.type,
       enumType: body.enumType?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : item.isActive,
+      sortOrder: body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : item.sortOrder,
+      price: body.price !== undefined ? (body.price?.trim() || null) : item.price,
+      tags: Array.isArray(body.tags) ? body.tags.map(String).map((value: string) => value.trim()).filter(Boolean) : item.tags,
+      allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : item.allergens,
+      isVeg: body.isVeg !== undefined ? (typeof body.isVeg === 'boolean' ? body.isVeg : null) : item.isVeg,
+      spiceLevel: body.spiceLevel !== undefined && Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : item.spiceLevel,
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
     const newMenu = menuId === oldMenu.id ? oldMenu : await Menu.findByPk(menuId);
@@ -831,6 +853,12 @@ export const AdminService = {
         type: item.type ?? 'item',
         enumType: item.enumType ?? null,
         isActive: item.isActive,
+        sortOrder: item.sortOrder ?? 0,
+        price: item.price ?? null,
+        tags: item.tags ?? [],
+        allergens: item.allergens ?? [],
+        isVeg: item.isVeg ?? null,
+        spiceLevel: item.spiceLevel ?? null,
         parentId: item.parentId ? (idMap.get(item.parentId) ?? null) : null,
       } as any);
       idMap.set(item.id, created.id as number);

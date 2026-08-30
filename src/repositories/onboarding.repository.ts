@@ -43,6 +43,12 @@ export const OnboardingRepo = {
       type: dto.type,
       enumType: dto.enumType,
       isActive: dto.isActive ?? true,
+      sortOrder: dto.sortOrder ?? 0,
+      price: dto.price,
+      tags: dto.tags ?? [],
+      allergens: dto.allergens ?? [],
+      isVeg: dto.isVeg,
+      spiceLevel: dto.spiceLevel,
       menuId,
       parentId: dto.parentId ?? null,
     } as any),
@@ -56,6 +62,12 @@ export const OnboardingRepo = {
     if (dto.type !== undefined) updates.type = dto.type;
     if (dto.enumType !== undefined) updates.enumType = dto.enumType;
     if (dto.isActive !== undefined) updates.isActive = dto.isActive;
+    if (dto.sortOrder !== undefined) updates.sortOrder = dto.sortOrder;
+    if (dto.price !== undefined) updates.price = dto.price;
+    if (dto.tags !== undefined) updates.tags = dto.tags;
+    if (dto.allergens !== undefined) updates.allergens = dto.allergens;
+    if (dto.isVeg !== undefined) updates.isVeg = dto.isVeg;
+    if (dto.spiceLevel !== undefined) updates.spiceLevel = dto.spiceLevel;
     if ('parentId' in dto) updates.parentId = dto.parentId ?? null;
     return LineItem.update(updates, { where: { id: itemId, menuId } });
   },

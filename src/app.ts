@@ -77,8 +77,15 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS ingredients   TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS image         TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS enum_type     VARCHAR(100)`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS sort_order    INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS price         TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS tags          TEXT[] NOT NULL DEFAULT '{}'::text[]`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS allergens     TEXT[] NOT NULL DEFAULT '{}'::text[]`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS is_veg         BOOLEAN`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS spice_level    INTEGER`).catch(() => {});
 
   // vendor — auth and contact-page columns
+  await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone         VARCHAR(20) UNIQUE`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS require_login BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
 
