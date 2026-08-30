@@ -34,6 +34,8 @@ export const EventExperienceController = {
       if (!event || !config.enabled) return res.status(404).json({ error: 'Event page not found' });
       const canPreview = req.user?.role === 'admin' || (req.user?.role === 'vendor' && Number(req.user.vendorId) === Number(event.vendorId));
       if (event.status !== 'active' && !canPreview) return res.status(404).json({ error: 'Event page not found' });
+      const hasEnded = Boolean(event.endTime && Date.now() > new Date(event.endTime).getTime());
+      const preview = event.status !== 'active';
 
       let registered = false;
       if (req.user?.phone) {
@@ -55,6 +57,8 @@ export const EventExperienceController = {
         startTime: event.startTime,
         endTime: event.endTime,
         status: event.status,
+        preview,
+        registrationOpen: !preview && config.registrationEnabled !== false && !hasEnded,
         experience: config,
         organizer: config.organizerVisible === false ? null : publicVendor(event.vendor, Boolean(config.contactVisible)),
         registered,
