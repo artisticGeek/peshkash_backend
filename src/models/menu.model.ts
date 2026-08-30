@@ -32,6 +32,9 @@ export class Menu extends Model<Menu> {
   @Column(DataType.TEXT)
   description?: string;
 
+  @Column({ field: 'item_story_heading', type: DataType.STRING(80), defaultValue: 'The backstory' })
+  itemStoryHeading!: string;
+
   @Column({ field: 'is_active', type: DataType.BOOLEAN })
   isActive!: boolean;
 

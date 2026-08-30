@@ -21,6 +21,36 @@ export class QrTemplate extends Model<QrTemplate> {
   @Column({ type: DataType.JSONB, allowNull: false, defaultValue: [] })
   elements!: object[];
 
+  @Column({ field: 'vendor_id', type: DataType.BIGINT, allowNull: true })
+  vendorId!: number | null;
+
+  @Column({ field: 'library_template_id', type: DataType.TEXT, allowNull: true })
+  libraryTemplateId!: string | null;
+
+  @Column({ field: 'manifest_version', type: DataType.TEXT, allowNull: false, defaultValue: '3.1.0' })
+  manifestVersion!: string;
+
+  @Column({ field: 'qr_style', type: DataType.TEXT, allowNull: false, defaultValue: 'obsidian-ring' })
+  qrStyle!: 'obsidian-ring' | 'porcelain-cameo';
+
+  @Column({ type: DataType.TEXT, allowNull: false, defaultValue: 'light' })
+  theme!: 'light' | 'dark';
+
+  @Column({ type: DataType.JSONB, allowNull: false, defaultValue: {} })
+  settings!: Record<string, unknown>;
+
+  @Column({ field: 'schema_version', type: DataType.TEXT, allowNull: false, defaultValue: '1.0.0' })
+  schemaVersion!: string;
+
+  @Column({ type: DataType.JSONB, allowNull: true })
+  document!: Record<string, unknown> | null;
+
+  @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 1 })
+  revision!: number;
+
+  @Column({ field: 'preview_thumbnail', type: DataType.TEXT, allowNull: true })
+  previewThumbnail!: string | null;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

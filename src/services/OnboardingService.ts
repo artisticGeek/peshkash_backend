@@ -38,6 +38,7 @@ function toMenuSummary(menu: any): MenuSummaryDTO {
     name: menu.name,
     displayName: menu.displayName,
     description: menu.description,
+    itemStoryHeading: menu.itemStoryHeading || 'The backstory',
     isActive: menu.isActive,
     createdAt: menu.createdAt,
   };

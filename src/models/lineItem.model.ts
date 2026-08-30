@@ -47,6 +47,24 @@ export class LineItem extends Model<LineItem> {
   @Column({ field: 'is_active', type: DataType.BOOLEAN })
   isActive!: boolean;
 
+  @Column({ field: 'sort_order', type: DataType.INTEGER, defaultValue: 0 })
+  sortOrder!: number;
+
+  @Column(DataType.TEXT)
+  price?: string;
+
+  @Column({ type: DataType.ARRAY(DataType.TEXT), defaultValue: [] })
+  tags?: string[];
+
+  @Column({ type: DataType.ARRAY(DataType.TEXT), defaultValue: [] })
+  allergens?: string[];
+
+  @Column({ field: 'is_veg', type: DataType.BOOLEAN })
+  isVeg?: boolean;
+
+  @Column({ field: 'spice_level', type: DataType.INTEGER })
+  spiceLevel?: number;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

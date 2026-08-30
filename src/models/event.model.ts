@@ -26,6 +26,10 @@ export class Event extends Model<Event> {
   @Column({ field: 'end_time', type: DataType.DATE })
   endTime?: Date;
 
+  /** Additive configuration for the public, menu-independent event page. */
+  @Column({ field: 'experience_config', type: DataType.JSONB, defaultValue: {} })
+  experienceConfig?: Record<string, unknown>;
+
   // 'draft' until payment confirmed, 'active' once paid
   @Column({ type: DataType.STRING, defaultValue: 'active' })
   status!: string;

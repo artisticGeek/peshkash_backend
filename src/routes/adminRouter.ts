@@ -17,9 +17,11 @@ router.delete('/vendors/:vendorId', AdminController.deleteVendor);
 router.get('/events', AdminController.listEvents);
 router.post('/events', AdminController.createEvent);
 router.put('/events/:eventId', AdminController.updateEvent);
+router.patch('/events/:eventId/experience', AdminController.updateEventExperience);
 router.delete('/events/:eventId', AdminController.deleteEvent);
 router.patch('/events/:eventId/status', AdminController.setEventStatus);
 router.get('/events/:eventId/menus', AdminController.listEventMenus);
+router.get('/events/:eventId/registrations', AdminController.listEventRegistrations);
 router.post('/events/:eventId/menus/:menuId', AdminController.linkMenuToEvent);
 router.delete('/events/:eventId/menus/:menuId', AdminController.unlinkMenuFromEvent);
 
@@ -47,13 +49,29 @@ router.post('/qr-templates', AdminController.createQrTemplate);
 router.put('/qr-templates/:id', AdminController.updateQrTemplate);
 router.delete('/qr-templates/:id', AdminController.deleteQrTemplate);
 
+// Design Studio API. These routes use the same persistence during the migration away from the
+// legacy QR-template element array, so QR Bank and Studio cannot drift into separate systems.
+router.get('/designs', AdminController.listQrTemplates);
+router.post('/designs', AdminController.createQrTemplate);
+router.get('/designs/:id', AdminController.getQrTemplate);
+router.put('/designs/:id', AdminController.updateQrTemplate);
+router.post('/designs/:id/duplicate', AdminController.duplicateQrTemplate);
+router.post('/designs/:id/validate', AdminController.validateQrTemplate);
+router.delete('/designs/:id', AdminController.deleteQrTemplate);
+
 router.get('/previews', AdminController.getPreviews);
 router.get('/preview/menu', AdminController.buildMenuPath);
 router.get('/preview/item', AdminController.buildItemPath);
 
 // Admin user management — only accessible by admins
-router.get('/admin-users',         requireRole('admin'), AuthController.listAdminUsers);
-router.post('/admin-users',        requireRole('admin'), AuthController.addAdminUser);
+router.get('/admin-users',           requireRole('admin'), AuthController.listAdminUsers);
+router.post('/admin-users',          requireRole('admin'), AuthController.addAdminUser);
 router.delete('/admin-users/:phone', requireRole('admin'), AuthController.removeAdminUser);
+
+// Session invalidation — force specific users or everyone to re-authenticate
+router.get('/session/invalidations',           requireRole('admin'), AdminController.listSessionInvalidations);
+router.post('/session/force-logout',           requireRole('admin'), AdminController.forceLogout);
+router.post('/session/force-logout-all',       requireRole('admin'), AdminController.forceLogoutAll);
+router.delete('/session/invalidations/:phone', requireRole('admin'), AdminController.clearSessionInvalidation);
 
 export default router;

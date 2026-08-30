@@ -1,11 +1,13 @@
 {
   "name": "peshkash",
   "version": "1.0.0",
-  "description": "QR-based digital menu platform for events and weddings",
+  "description": "Peshkash — QR-powered digital presence for offline businesses. One permanent QR, any content, updated instantly.",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev -r dotenv/config --respawn --transpile-only src/server.ts",
+    "dev:studio": "ts-node-dev -r dotenv/config --respawn --transpile-only src/studioDevServer.ts",
     "build": "tsc",
+    "start:studio": "node -r dotenv/config dist/studioDevServer.js",
     "start": "node -r dotenv/config dist/server.js"
   },
   "author": "",

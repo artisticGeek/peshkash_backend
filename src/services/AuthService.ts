@@ -9,7 +9,10 @@
  * Bootstrap: set INITIAL_ADMIN_PHONE env var to seed the first admin on first boot.
  *
  * JWT payload: { phone, role, vendorId? }
- * JWT expiry : 48 hours (configurable via JWT_TTL_HOURS env var)
+ * JWT expiry : 8760 h / 1 year (configurable via JWT_TTL_HOURS env var).
+ *   The frontend enforces a shorter 90-day sliding window. The long-lived
+ *   token means active users are never forced to re-authenticate just because
+ *   the JWT expired while the frontend still considers the session live.
  */
 
 import jwt from 'jsonwebtoken';
@@ -23,10 +26,12 @@ export interface AuthPayload {
   phone:     string;
   role:      Role;
   vendorId?: number | null;
+  iat?:      number; // JWT standard claim — seconds since epoch
+  exp?:      number; // JWT standard claim
 }
 
 const JWT_SECRET    = process.env.JWT_SECRET ?? 'peshkash-dev-secret-change-in-prod';
-const JWT_TTL_HOURS = Number(process.env.JWT_TTL_HOURS ?? 48);
+const JWT_TTL_HOURS = Number(process.env.JWT_TTL_HOURS ?? 8760); // 1 year
 
 if (!process.env.JWT_SECRET) {
   console.warn('[AuthService] ⚠️  JWT_SECRET not set — using insecure default. Set JWT_SECRET in production.');

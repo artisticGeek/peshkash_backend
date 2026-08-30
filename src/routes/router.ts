@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { QrMappingController } from '../controllers/QrCodeController';
+import { EventExperienceController } from '../controllers/EventExperienceController';
+import { requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
+
+router.get('/event/:eventName', EventExperienceController.getPublicEvent);
+router.post('/event/:eventName/register', requireRole('customer', 'vendor', 'admin'), EventExperienceController.register);
 
 // Your new nested event-menu route
 //router.get('/event/:eventId/menu/:menuId', QrMappingController.getMenuByEventId);
