@@ -3,6 +3,7 @@ import { VendorRepo } from '../repositories/vendor.repository';
 import { Event } from '../models/event.model';
 import { Menu } from '../models/menu.model';
 import { LineItem } from '../models/lineItem.model';
+import { EventMenuMapping } from '../models/eventMenuMapping.model';
 
 async function normalizeDestination(url: string) {
     const trimmed = url.trim();
@@ -88,6 +89,18 @@ export const QrLinkMappingService = {
 
         if (!qrLinkMapping || !qrLinkMapping.url || !qrLinkMapping.isActive) {
             return null;
+        }
+
+        // Event QR codes are true permanent identities: resolve their current first
+        // linked menu at scan time instead of trusting a stored slug-based URL.
+        if (qrLinkMapping.type === 'event' && qrLinkMapping.eventId) {
+            const link = await EventMenuMapping.findOne({
+                where: { eventId: qrLinkMapping.eventId },
+                include: [Event, Menu],
+                order: [['createdAt', 'ASC']],
+            });
+            if (!link?.event || !link.menu) return null;
+            return { redirectionUrl: `/event/${link.event.name}/menu/${link.menu.name}` };
         }
 
         return { redirectionUrl: await normalizeDestination(qrLinkMapping.url) };

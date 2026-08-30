@@ -288,6 +288,76 @@ async function syncEventQrUrls(eventId: number, eventName: string) {
   );
 }
 
+async function rewriteVendorQrDestination(vendorId: number, oldName: string, newName: string) {
+  if (oldName === newName) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: {
+      [Op.or]: [
+        { vendorId },
+        { url: `/vendor/${oldName}` },
+      ],
+    } as any,
+  });
+  await Promise.all(mappings.map(async (mapping) => {
+    if (mapping.url !== `/vendor/${oldName}`) return;
+    await mapping.update({ url: `/vendor/${newName}`, vendorId, updatedAt: new Date() } as any);
+  }));
+}
+
+async function rewriteEventQrDestinations(eventId: number, vendorId: number, oldName: string, newName: string) {
+  const mappings = await QrLinkMapping.findAll({
+    where: { [Op.or]: [{ eventId }, { vendorId }] } as any,
+  });
+  const oldPrefix = `/event/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || (mapping.url !== oldPrefix && !mapping.url.startsWith(`${oldPrefix}/`))) return;
+    await mapping.update({
+      url: `/event/${newName}${mapping.url.slice(oldPrefix.length)}`,
+      eventId,
+      vendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
+async function rewriteMenuQrDestinations(oldVendorId: number, newVendorId: number, oldName: string, newName: string) {
+  if (oldName === newName && oldVendorId === newVendorId) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: { vendorId: { [Op.in]: [...new Set([oldVendorId, newVendorId])] } } as any,
+  });
+  const segment = `/menu/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || !mapping.url.includes(segment)) return;
+    const suffix = mapping.url.slice(mapping.url.indexOf(segment) + segment.length);
+    if (suffix && !suffix.startsWith('/')) return;
+    await mapping.update({
+      url: mapping.url.replace(segment, `/menu/${newName}`),
+      vendorId: newVendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
+async function rewriteItemQrDestinations(oldVendorId: number, newVendorId: number, oldMenuName: string, newMenuName: string, oldName: string, newName: string) {
+  if (oldName === newName && oldMenuName === newMenuName && oldVendorId === newVendorId) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: { vendorId: { [Op.in]: [...new Set([oldVendorId, newVendorId])] } } as any,
+  });
+  const menuSegment = `/menu/${oldMenuName}/`;
+  const itemSuffix = `/item/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || !mapping.url.includes(menuSegment) || !mapping.url.endsWith(itemSuffix)) return;
+    const nextUrl = mapping.url
+      .replace(menuSegment, `/menu/${newMenuName}/`)
+      .replace(new RegExp(`/item/${oldName}$`), `/item/${newName}`);
+    await mapping.update({
+      url: nextUrl,
+      vendorId: newVendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
 async function ensureVendorOwnsMenu(vendorId: number, menuId: number) {
   const menu = await Menu.findOne({ where: { id: menuId, vendorId } });
   if (!menu) throw badRequest('Menu does not belong to the selected vendor');
@@ -329,6 +399,7 @@ export const AdminService = {
   updateVendor: async (id: number, body: any) => {
     const vendor = await Vendor.findByPk(id);
     if (!vendor) throw notFound('Vendor not found');
+    const oldName = vendor.name;
     const name = body.name !== undefined ? requireSlug(body.name, 'Vendor slug') : vendor.name;
     if (name !== vendor.name) {
       const duplicate = await Vendor.findOne({ where: { name, id: { [Op.ne]: id } } });
@@ -345,6 +416,7 @@ export const AdminService = {
       phone: ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone) as string | undefined,
       requireLogin: body.requireLogin !== undefined ? Boolean(body.requireLogin) : vendor.requireLogin,
     });
+    await rewriteVendorQrDestination(id, oldName, name);
     return cleanVendor(vendor);
   },
 
@@ -379,6 +451,7 @@ export const AdminService = {
   updateEvent: async (id: number, body: any) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    const oldName = event.name;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : event.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Event slug') : event.name;
@@ -395,6 +468,8 @@ export const AdminService = {
     };
     if (await hasEventStatusColumn()) updateData.status = isStatus(body.status) ? body.status : event.getDataValue('status');
     await event.update(updateData as any);
+    await rewriteEventQrDestinations(id, vendorId, oldName, name);
+    await syncEventQrUrls(id, name);
     return AdminService.getEvent(id);
   },
 
@@ -434,6 +509,8 @@ export const AdminService = {
   updateMenu: async (id: number, body: any) => {
     const menu = await Menu.findByPk(id);
     if (!menu) throw notFound('Menu not found');
+    const oldName = menu.name;
+    const oldVendorId = menu.vendorId;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : menu.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Menu slug') : menu.name;
@@ -446,6 +523,13 @@ export const AdminService = {
       description: body.description?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : menu.isActive,
     });
+    await rewriteMenuQrDestinations(oldVendorId, vendorId, oldName, name);
+    const linkedEvents = await EventMenuMapping.findAll({
+      where: { menuId: id },
+      attributes: await eventMenuMappingAttributes(),
+      include: [{ model: Event, attributes: await eventAttributes() }],
+    });
+    await Promise.all(linkedEvents.map((link) => syncEventQrUrls(link.eventId, link.event.name)));
     const updated = await Menu.findByPk(id, { include: [Vendor] });
     return cleanMenu(updated!);
   },
@@ -524,6 +608,9 @@ export const AdminService = {
   updateItem: async (id: number, body: any) => {
     const item = await LineItem.findByPk(id);
     if (!item) throw notFound('Item not found');
+    const oldName = item.name;
+    const oldMenu = await Menu.findByPk(item.menuId);
+    if (!oldMenu) throw badRequest('Current menu does not exist');
     const menuId = body.menuId !== undefined ? Number(body.menuId) : item.menuId;
     const name = body.name !== undefined ? requireSlug(body.name, 'Item slug') : item.name;
     const duplicate = await LineItem.findOne({ where: { menuId, name, id: { [Op.ne]: id } } });
@@ -545,6 +632,9 @@ export const AdminService = {
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : item.isActive,
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
+    const newMenu = menuId === oldMenu.id ? oldMenu : await Menu.findByPk(menuId);
+    if (!newMenu) throw badRequest('Selected menu does not exist');
+    await rewriteItemQrDestinations(oldMenu.vendorId, newMenu.vendorId, oldMenu.name, newMenu.name, oldName, name);
     return cleanItem(item);
   },
 
