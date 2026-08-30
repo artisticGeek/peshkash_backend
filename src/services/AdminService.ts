@@ -546,6 +546,15 @@ export const AdminService = {
     return AdminService.getEvent(id);
   },
 
+  updateEventExperience: async (id: number, body: any) => {
+    const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
+    if (!event) throw notFound('Event not found');
+    const experienceConfig = cleanEventExperience(body?.experienceConfig ?? body);
+    await event.update({ experienceConfig } as any);
+    await syncEventQrUrls(id, event.name);
+    return AdminService.getEvent(id);
+  },
+
   getEvent: async (id: number) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
@@ -856,6 +865,14 @@ export const AdminService = {
     if (!isStatus(status)) throw badRequest('Status must be draft, active, or inactive');
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    if (status === 'active') {
+      if (!event.startTime || !event.endTime) throw badRequest('Add event start and end times before publishing');
+      const standaloneReady = Boolean((event.experienceConfig as any)?.enabled);
+      if (!standaloneReady) {
+        const linkedMenuCount = await EventMenuMapping.count({ where: { eventId: id } });
+        if (!linkedMenuCount) throw badRequest('Enable and save the public event page, or link at least one menu, before publishing');
+      }
+    }
     await Event.sequelize!.transaction(async (t) => {
       await event.update({ status } as any, { transaction: t });
       if (status === 'active' || status === 'inactive') {

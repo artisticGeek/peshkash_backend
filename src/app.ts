@@ -93,8 +93,10 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS require_login BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
 
   // event experience — menu-independent public pages and phone registrations
-  await sequelize.query(`ALTER TABLE event ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`).catch(() => {});
-  await sequelize.query(`ALTER TABLE event ADD COLUMN IF NOT EXISTS experience_config JSONB NOT NULL DEFAULT '{}'::jsonb`).catch(() => {});
+  // These are required by the event workflow. Do not swallow failures: serving an older schema
+  // makes the API appear to save successfully while silently losing the public-page settings.
+  await sequelize.query(`ALTER TABLE event ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`);
+  await sequelize.query(`ALTER TABLE event ADD COLUMN IF NOT EXISTS experience_config JSONB NOT NULL DEFAULT '{}'::jsonb`);
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS event_registration (
       id             BIGSERIAL PRIMARY KEY,
@@ -104,8 +106,8 @@ export async function runMigrations(): Promise<void> {
       updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(event_id, phone)
     )
-  `).catch(() => {});
-  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_event_registration_event_id ON event_registration(event_id)`).catch(() => {});
+  `);
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_event_registration_event_id ON event_registration(event_id)`);
 
   // QR Studio — manifest-backed designs. Legacy element arrays remain readable.
   await sequelize.query(`

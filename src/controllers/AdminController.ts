@@ -30,6 +30,8 @@ export const AdminController = {
   createEvent: (req: Request, res: Response) => handle(res, AdminService.createEvent(req.body), 201),
   updateEvent: (req: Request, res: Response) =>
     handle(res, AdminService.updateEvent(Number(req.params.eventId), req.body)),
+  updateEventExperience: (req: Request, res: Response) =>
+    handle(res, AdminService.updateEventExperience(Number(req.params.eventId), req.body)),
 
   listMenus: (_req: Request, res: Response) => handle(res, AdminService.listMenus()),
   createMenu: (req: Request, res: Response) => handle(res, AdminService.createMenu(req.body), 201),
