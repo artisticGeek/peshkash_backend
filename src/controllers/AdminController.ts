@@ -38,6 +38,25 @@ export const AdminController = {
 
   listEventMenus: (req: Request, res: Response) =>
     handle(res, AdminService.listEventMenus(Number(req.params.eventId))),
+  listEventRegistrations: async (req: Request, res: Response) => {
+    try {
+      const eventId = Number(req.params.eventId);
+      if (!eventId) return res.status(400).json({ message: 'Valid eventId is required' });
+      const vendorId = req.user?.role === 'vendor' ? Number(req.user.vendorId) : null;
+      const rows = await sequelize.query(
+        `SELECT r.id, r.phone, r.registered_at AS "registeredAt", r.updated_at AS "updatedAt"
+           FROM event_registration r
+           JOIN event e ON e.id = r.event_id
+          WHERE r.event_id = :eventId
+            AND (:vendorId IS NULL OR e.vendor_id = :vendorId)
+          ORDER BY r.registered_at DESC`,
+        { replacements: { eventId, vendorId }, type: QueryTypes.SELECT },
+      );
+      return res.json(rows);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message ?? 'Could not load registrations' });
+    }
+  },
   linkMenuToEvent: (req: Request, res: Response) =>
     handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId), req.body?.displayName), 201),
   unlinkMenuFromEvent: (req: Request, res: Response) =>
