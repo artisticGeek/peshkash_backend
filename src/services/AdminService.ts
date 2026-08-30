@@ -215,6 +215,7 @@ function cleanMenu(menu: Menu) {
     name: menu.name,
     displayName: menu.displayName,
     description: menu.description,
+    itemStoryHeading: menu.itemStoryHeading || 'The backstory',
     isActive: menu.isActive,
     vendorId: menu.vendorId,
     type: menu.getDataValue('type') ?? 'generic',
@@ -504,6 +505,7 @@ export const AdminService = {
       name,
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || null,
+      itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory',
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       type: menuType,
       sourceMenuId: body.sourceMenuId ? Number(body.sourceMenuId) : null,
@@ -527,6 +529,9 @@ export const AdminService = {
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Menu display name') : menu.displayName,
       description: body.description?.trim() || null,
+      itemStoryHeading: body.itemStoryHeading !== undefined
+        ? (body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory')
+        : menu.itemStoryHeading,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : menu.isActive,
     });
     await rewriteMenuQrDestinations(oldVendorId, vendorId, oldName, name);
@@ -831,6 +836,7 @@ export const AdminService = {
       name,
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || source.description || null,
+      itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || source.itemStoryHeading || 'The backstory',
       isActive: true,
       type: 'personalized',
       sourceMenuId: source.id,

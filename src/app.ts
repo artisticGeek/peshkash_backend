@@ -84,6 +84,9 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS is_veg         BOOLEAN`).catch(() => {});
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS spice_level    INTEGER`).catch(() => {});
 
+  // menu — editorial presentation settings used by public item pages
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS item_story_heading VARCHAR(80) NOT NULL DEFAULT 'The backstory'`).catch(() => {});
+
   // vendor — auth and contact-page columns
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone         VARCHAR(20) UNIQUE`).catch(() => {});

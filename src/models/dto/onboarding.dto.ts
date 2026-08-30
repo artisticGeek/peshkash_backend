@@ -7,6 +7,7 @@ export interface MenuSummaryDTO {
   name: string;
   displayName: string;
   description?: string;
+  itemStoryHeading?: string;
   isActive: boolean;
   createdAt: Date;
 }
@@ -15,6 +16,7 @@ export interface CreateMenuDTO {
   name: string;
   displayName: string;
   description?: string;
+  itemStoryHeading?: string;
 }
 
 // ─── Line Items ────────────────────────────────────────────────────────────────

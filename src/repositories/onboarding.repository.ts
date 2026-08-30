@@ -19,7 +19,7 @@ export const OnboardingRepo = {
   listMenus: (vendorId: number) =>
     Menu.findAll({
       where: { vendorId },
-      attributes: ['id', 'name', 'displayName', 'description', 'isActive', 'createdAt'],
+      attributes: ['id', 'name', 'displayName', 'description', 'itemStoryHeading', 'isActive', 'createdAt'],
     }),
 
   createMenu: (vendorId: number, dto: CreateMenuDTO) =>
