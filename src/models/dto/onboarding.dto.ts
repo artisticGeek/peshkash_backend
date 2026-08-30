@@ -7,6 +7,7 @@ export interface MenuSummaryDTO {
   name: string;
   displayName: string;
   description?: string;
+  itemStoryHeading?: string;
   isActive: boolean;
   createdAt: Date;
 }
@@ -15,6 +16,7 @@ export interface CreateMenuDTO {
   name: string;
   displayName: string;
   description?: string;
+  itemStoryHeading?: string;
 }
 
 // ─── Line Items ────────────────────────────────────────────────────────────────
@@ -28,9 +30,15 @@ export interface CreateLineItemDTO {
   description?: string;
   ingredients?: string;
   image?: string;
-  type: 'category' | 'dish';
+  type: 'category' | 'item' | 'dish' | 'product' | 'service' | 'art' | 'modifier' | 'addon';
   enumType?: 'veg' | 'non-veg' | 'egg';
   isActive?: boolean;
+  sortOrder?: number;
+  price?: string;
+  tags?: string[];
+  allergens?: string[];
+  isVeg?: boolean;
+  spiceLevel?: number;
 }
 
 export interface UpdateLineItemDTO {
@@ -42,6 +50,12 @@ export interface UpdateLineItemDTO {
   enumType?: 'veg' | 'non-veg' | 'egg';
   isActive?: boolean;
   parentId?: number | null;
+  sortOrder?: number;
+  price?: string;
+  tags?: string[];
+  allergens?: string[];
+  isVeg?: boolean;
+  spiceLevel?: number;
 }
 
 export interface FlatLineItemDTO {
@@ -54,6 +68,12 @@ export interface FlatLineItemDTO {
   type?: string;
   enumType?: string;
   isActive: boolean;
+  sortOrder?: number;
+  price?: string;
+  tags?: string[];
+  allergens?: string[];
+  isVeg?: boolean;
+  spiceLevel?: number;
   parentId?: number;
   menuId: number;
   createdAt: Date;

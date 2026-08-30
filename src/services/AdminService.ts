@@ -9,6 +9,24 @@ import { QrTemplate } from '../models/qrTemplate.model';
 import { Vendor } from '../models/vendor.model';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const QR_LIBRARY_TEMPLATE_IDS = new Set([
+  'contact-card-creative', 'contact-card-professional', 'contact-card-maker', 'portfolio-postcard',
+  'social-follow-card', 'artist-artwork-tag', 'painter-title-card', 'exhibition-wall-label',
+  'gallery-takeaway-card', 'museum-object-label', 'craft-market-tag', 'product-sticker-square',
+  'product-sticker-round', 'product-care-card', 'packaging-insert', 'jewellery-authenticity-card',
+  'furniture-product-tag', 'baker-box-sticker', 'caterer-menu-card', 'restaurant-table-menu',
+  'cafe-counter-plate', 'food-stall-sign', 'salon-booking-card', 'studio-booking-plate',
+  'repair-service-tag', 'tutor-class-flyer', 'event-checkin-pass', 'wedding-vendor-card',
+  'real-estate-property-card', 'exhibition-entry-card',
+]);
+const QR_STYLES = new Set(['obsidian-ring', 'porcelain-cameo']);
+const QR_THEMES = new Set(['light', 'dark']);
+const APPROVED_QR_HOSTS = new Set(
+  (process.env.PESHKASH_QR_HOSTS || 'peshkash.app,www.peshkash.app,pksh.in,pksh.example')
+    .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean),
+);
+
+type StudioActor = { role: string; vendorId?: number | null };
 
 type UrlContext = {
   origin: string;
@@ -67,8 +85,51 @@ function notFound(message: string) {
   return Object.assign(new Error(message), { status: 404 });
 }
 
+function forbidden(message: string) {
+  return Object.assign(new Error(message), { status: 403 });
+}
+
 function conflict(message: string) {
   return Object.assign(new Error(message), { status: 409 });
+}
+
+function isKnownTemplateId(value: string): boolean {
+  return QR_LIBRARY_TEMPLATE_IDS.has(value) || /^custom-[a-z0-9-]+$/i.test(value);
+}
+
+function actorVendorId(actor?: StudioActor, requested?: unknown): number | null {
+  if (actor?.role === 'vendor') {
+    const id = Number(actor.vendorId);
+    if (!Number.isFinite(id) || id <= 0) throw forbidden('Vendor workspace is missing from this session');
+    return id;
+  }
+  const id = Number(requested);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function assertApprovedDestination(settings: unknown, document?: unknown): void {
+  const settingsDestination = settings && typeof settings === 'object'
+    ? (settings as Record<string, unknown>).destination
+    : undefined;
+  const pages = document && typeof document === 'object'
+    ? (document as Record<string, any>).pages
+    : undefined;
+  const documentDestination = Array.isArray(pages) && pages[0]?.copy
+    ? pages[0].copy.destination
+    : undefined;
+  const destination = String(settingsDestination || documentDestination || '').trim();
+  if (!destination) return;
+  let url: URL;
+  try { url = new URL(destination); } catch { throw badRequest('QR destination must be a valid URL'); }
+  if (url.protocol !== 'https:') throw badRequest('QR destination must use HTTPS');
+  if (!APPROVED_QR_HOSTS.has(url.hostname.toLowerCase())) throw badRequest('QR destination must use an approved Peshkash host');
+}
+
+function assertTemplateWritable(template: QrTemplate, actor?: StudioActor): void {
+  if (actor?.role !== 'vendor') return;
+  if (!template.vendorId || Number(template.vendorId) !== Number(actor.vendorId)) {
+    throw forbidden('This design belongs to another workspace or is a protected library preset');
+  }
 }
 
 function requireSlug(value: unknown, field: string) {
@@ -154,6 +215,7 @@ function cleanMenu(menu: Menu) {
     name: menu.name,
     displayName: menu.displayName,
     description: menu.description,
+    itemStoryHeading: menu.itemStoryHeading || 'The backstory',
     isActive: menu.isActive,
     vendorId: menu.vendorId,
     type: menu.getDataValue('type') ?? 'generic',
@@ -174,6 +236,12 @@ function cleanItem(item: LineItem) {
     type: item.type,
     enumType: item.enumType,
     isActive: item.isActive,
+    sortOrder: item.sortOrder ?? 0,
+    price: item.price,
+    tags: item.tags ?? [],
+    allergens: item.allergens ?? [],
+    isVeg: item.isVeg,
+    spiceLevel: item.spiceLevel,
     menuId: item.menuId,
     parentId: item.parentId,
     createdAt: item.createdAt,
@@ -227,6 +295,76 @@ async function syncEventQrUrls(eventId: number, eventName: string) {
   );
 }
 
+async function rewriteVendorQrDestination(vendorId: number, oldName: string, newName: string) {
+  if (oldName === newName) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: {
+      [Op.or]: [
+        { vendorId },
+        { url: `/vendor/${oldName}` },
+      ],
+    } as any,
+  });
+  await Promise.all(mappings.map(async (mapping) => {
+    if (mapping.url !== `/vendor/${oldName}`) return;
+    await mapping.update({ url: `/vendor/${newName}`, vendorId, updatedAt: new Date() } as any);
+  }));
+}
+
+async function rewriteEventQrDestinations(eventId: number, vendorId: number, oldName: string, newName: string) {
+  const mappings = await QrLinkMapping.findAll({
+    where: { [Op.or]: [{ eventId }, { vendorId }] } as any,
+  });
+  const oldPrefix = `/event/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || (mapping.url !== oldPrefix && !mapping.url.startsWith(`${oldPrefix}/`))) return;
+    await mapping.update({
+      url: `/event/${newName}${mapping.url.slice(oldPrefix.length)}`,
+      eventId,
+      vendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
+async function rewriteMenuQrDestinations(oldVendorId: number, newVendorId: number, oldName: string, newName: string) {
+  if (oldName === newName && oldVendorId === newVendorId) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: { vendorId: { [Op.in]: [...new Set([oldVendorId, newVendorId])] } } as any,
+  });
+  const segment = `/menu/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || !mapping.url.includes(segment)) return;
+    const suffix = mapping.url.slice(mapping.url.indexOf(segment) + segment.length);
+    if (suffix && !suffix.startsWith('/')) return;
+    await mapping.update({
+      url: mapping.url.replace(segment, `/menu/${newName}`),
+      vendorId: newVendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
+async function rewriteItemQrDestinations(oldVendorId: number, newVendorId: number, oldMenuName: string, newMenuName: string, oldName: string, newName: string) {
+  if (oldName === newName && oldMenuName === newMenuName && oldVendorId === newVendorId) return;
+  const mappings = await QrLinkMapping.findAll({
+    where: { vendorId: { [Op.in]: [...new Set([oldVendorId, newVendorId])] } } as any,
+  });
+  const menuSegment = `/menu/${oldMenuName}/`;
+  const itemSuffix = `/item/${oldName}`;
+  await Promise.all(mappings.map(async (mapping) => {
+    if (!mapping.url || !mapping.url.includes(menuSegment) || !mapping.url.endsWith(itemSuffix)) return;
+    const nextUrl = mapping.url
+      .replace(menuSegment, `/menu/${newMenuName}/`)
+      .replace(new RegExp(`/item/${oldName}$`), `/item/${newName}`);
+    await mapping.update({
+      url: nextUrl,
+      vendorId: newVendorId,
+      updatedAt: new Date(),
+    } as any);
+  }));
+}
+
 async function ensureVendorOwnsMenu(vendorId: number, menuId: number) {
   const menu = await Menu.findOne({ where: { id: menuId, vendorId } });
   if (!menu) throw badRequest('Menu does not belong to the selected vendor');
@@ -268,6 +406,7 @@ export const AdminService = {
   updateVendor: async (id: number, body: any) => {
     const vendor = await Vendor.findByPk(id);
     if (!vendor) throw notFound('Vendor not found');
+    const oldName = vendor.name;
     const name = body.name !== undefined ? requireSlug(body.name, 'Vendor slug') : vendor.name;
     if (name !== vendor.name) {
       const duplicate = await Vendor.findOne({ where: { name, id: { [Op.ne]: id } } });
@@ -284,6 +423,7 @@ export const AdminService = {
       phone: ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone) as string | undefined,
       requireLogin: body.requireLogin !== undefined ? Boolean(body.requireLogin) : vendor.requireLogin,
     });
+    await rewriteVendorQrDestination(id, oldName, name);
     return cleanVendor(vendor);
   },
 
@@ -318,6 +458,7 @@ export const AdminService = {
   updateEvent: async (id: number, body: any) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    const oldName = event.name;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : event.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Event slug') : event.name;
@@ -334,6 +475,8 @@ export const AdminService = {
     };
     if (await hasEventStatusColumn()) updateData.status = isStatus(body.status) ? body.status : event.getDataValue('status');
     await event.update(updateData as any);
+    await rewriteEventQrDestinations(id, vendorId, oldName, name);
+    await syncEventQrUrls(id, name);
     return AdminService.getEvent(id);
   },
 
@@ -362,6 +505,7 @@ export const AdminService = {
       name,
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || null,
+      itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory',
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       type: menuType,
       sourceMenuId: body.sourceMenuId ? Number(body.sourceMenuId) : null,
@@ -373,6 +517,8 @@ export const AdminService = {
   updateMenu: async (id: number, body: any) => {
     const menu = await Menu.findByPk(id);
     if (!menu) throw notFound('Menu not found');
+    const oldName = menu.name;
+    const oldVendorId = menu.vendorId;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : menu.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
     const name = body.name !== undefined ? requireSlug(body.name, 'Menu slug') : menu.name;
@@ -383,8 +529,18 @@ export const AdminService = {
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Menu display name') : menu.displayName,
       description: body.description?.trim() || null,
+      itemStoryHeading: body.itemStoryHeading !== undefined
+        ? (body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory')
+        : menu.itemStoryHeading,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : menu.isActive,
     });
+    await rewriteMenuQrDestinations(oldVendorId, vendorId, oldName, name);
+    const linkedEvents = await EventMenuMapping.findAll({
+      where: { menuId: id },
+      attributes: await eventMenuMappingAttributes(),
+      include: [{ model: Event, attributes: await eventAttributes() }],
+    });
+    await Promise.all(linkedEvents.map((link) => syncEventQrUrls(link.eventId, link.event.name)));
     const updated = await Menu.findByPk(id, { include: [Vendor] });
     return cleanMenu(updated!);
   },
@@ -429,7 +585,7 @@ export const AdminService = {
 
   listItems: async (menuId?: number) => {
     const where = menuId ? { menuId } : {};
-    const items = await LineItem.findAll({ where, include: [Menu], order: [['createdAt', 'DESC']] });
+    const items = await LineItem.findAll({ where, include: [Menu], order: [['menuId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']] });
     return items.map(cleanItem);
   },
 
@@ -455,6 +611,12 @@ export const AdminService = {
       type: body.type?.trim() || 'item',
       enumType: body.enumType?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+      sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
+      price: body.price?.trim() || null,
+      tags: Array.isArray(body.tags) ? body.tags.map(String).map((value: string) => value.trim()).filter(Boolean) : [],
+      allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : [],
+      isVeg: typeof body.isVeg === 'boolean' ? body.isVeg : null,
+      spiceLevel: Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : null,
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
     return cleanItem(item);
@@ -463,6 +625,9 @@ export const AdminService = {
   updateItem: async (id: number, body: any) => {
     const item = await LineItem.findByPk(id);
     if (!item) throw notFound('Item not found');
+    const oldName = item.name;
+    const oldMenu = await Menu.findByPk(item.menuId);
+    if (!oldMenu) throw badRequest('Current menu does not exist');
     const menuId = body.menuId !== undefined ? Number(body.menuId) : item.menuId;
     const name = body.name !== undefined ? requireSlug(body.name, 'Item slug') : item.name;
     const duplicate = await LineItem.findOne({ where: { menuId, name, id: { [Op.ne]: id } } });
@@ -470,7 +635,11 @@ export const AdminService = {
     if (body.parentId) {
       const parent = await LineItem.findOne({ where: { id: Number(body.parentId), menuId } });
       if (!parent) throw badRequest('Parent item must belong to the same menu');
-      if (Number(body.parentId) === id) throw badRequest('An item cannot be its own parent');
+      let cursor: LineItem | null = parent;
+      while (cursor) {
+        if (cursor.id === id) throw badRequest('An item cannot be moved inside itself or one of its descendants');
+        cursor = cursor.parentId ? await LineItem.findByPk(cursor.parentId) : null;
+      }
     }
     await item.update({
       menuId,
@@ -482,8 +651,17 @@ export const AdminService = {
       type: body.type?.trim() || item.type,
       enumType: body.enumType?.trim() || null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : item.isActive,
+      sortOrder: body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : item.sortOrder,
+      price: body.price !== undefined ? (body.price?.trim() || null) : item.price,
+      tags: Array.isArray(body.tags) ? body.tags.map(String).map((value: string) => value.trim()).filter(Boolean) : item.tags,
+      allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : item.allergens,
+      isVeg: body.isVeg !== undefined ? (typeof body.isVeg === 'boolean' ? body.isVeg : null) : item.isVeg,
+      spiceLevel: body.spiceLevel !== undefined && Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : item.spiceLevel,
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
+    const newMenu = menuId === oldMenu.id ? oldMenu : await Menu.findByPk(menuId);
+    if (!newMenu) throw badRequest('Selected menu does not exist');
+    await rewriteItemQrDestinations(oldMenu.vendorId, newMenu.vendorId, oldMenu.name, newMenu.name, oldName, name);
     return cleanItem(item);
   },
 
@@ -658,6 +836,7 @@ export const AdminService = {
       name,
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || source.description || null,
+      itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || source.itemStoryHeading || 'The backstory',
       isActive: true,
       type: 'personalized',
       sourceMenuId: source.id,
@@ -680,6 +859,12 @@ export const AdminService = {
         type: item.type ?? 'item',
         enumType: item.enumType ?? null,
         isActive: item.isActive,
+        sortOrder: item.sortOrder ?? 0,
+        price: item.price ?? null,
+        tags: item.tags ?? [],
+        allergens: item.allergens ?? [],
+        isVeg: item.isVeg ?? null,
+        spiceLevel: item.spiceLevel ?? null,
         parentId: item.parentId ? (idMap.get(item.parentId) ?? null) : null,
       } as any);
       idMap.set(item.id, created.id as number);
@@ -747,42 +932,118 @@ export const AdminService = {
     return { path, publicUrl: `${ctx.origin}${path}` };
   },
 
-  listQrTemplates: () =>
-    QrTemplate.findAll({ order: [['updatedAt', 'DESC']] }),
+  listQrTemplates: (actor?: StudioActor) =>
+    QrTemplate.findAll({
+      where: actor?.role === 'vendor'
+        ? { [Op.or]: [{ vendorId: Number(actor.vendorId) }, { vendorId: null }] }
+        : undefined,
+      order: [['updatedAt', 'DESC']],
+    }),
 
-  createQrTemplate: (body: any) =>
-    QrTemplate.create({
+  getQrTemplate: async (id: number, actor?: StudioActor) => {
+    const template = await QrTemplate.findByPk(id);
+    if (!template) throw notFound('Design not found');
+    if (actor?.role === 'vendor' && template.vendorId !== null && Number(template.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This design belongs to another workspace');
+    }
+    return template;
+  },
+
+  createQrTemplate: (body: any, actor?: StudioActor) => {
+    const libraryTemplateId = String(body.libraryTemplateId || '');
+    const qrStyle = String(body.qrStyle || 'obsidian-ring');
+    const theme = String(body.theme || 'light');
+    if (!isKnownTemplateId(libraryTemplateId)) throw badRequest('Unknown QR Studio library template');
+    if (!QR_STYLES.has(qrStyle)) throw badRequest('Unknown QR signature');
+    if (!QR_THEMES.has(theme)) throw badRequest('Unknown template theme');
+    assertApprovedDestination(body.settings, body.document);
+    return QrTemplate.create({
       name: body.name || 'Untitled Template',
       widthMm: Number(body.widthMm) || 85,
       heightMm: Number(body.heightMm) || 54,
       elements: body.elements ?? [],
-      vendorId: body.vendorId ? Number(body.vendorId) : null,
-      settings: body.settings ?? null,
-      libraryTemplateId: body.libraryTemplateId ?? null,
-      qrStyle: body.qrStyle ?? null,
-      theme: body.theme ?? null,
-    } as any),
+      vendorId: actorVendorId(actor, body.vendorId),
+      libraryTemplateId,
+      manifestVersion: String(body.manifestVersion || '3.1.0').slice(0, 20),
+      qrStyle,
+      theme,
+      settings: body.settings && typeof body.settings === 'object' ? body.settings : {},
+      schemaVersion: String(body.schemaVersion || '1.0.0').slice(0, 20),
+      document: body.document && typeof body.document === 'object' ? body.document : null,
+      revision: 1,
+      previewThumbnail: typeof body.previewThumbnail === 'string' ? body.previewThumbnail : null,
+    } as any);
+  },
 
-  updateQrTemplate: async (id: number, body: any) => {
+  updateQrTemplate: async (id: number, body: any, actor?: StudioActor) => {
     const tpl = await QrTemplate.findByPk(id);
     if (!tpl) throw notFound('Template not found');
+    assertTemplateWritable(tpl, actor);
+    if (body.revision != null && Number(body.revision) !== tpl.revision) {
+      throw conflict('This design was updated in another tab. Reload before saving again.');
+    }
+    if (body.libraryTemplateId != null && !isKnownTemplateId(String(body.libraryTemplateId))) throw badRequest('Unknown QR Studio library template');
+    if (body.qrStyle != null && !QR_STYLES.has(String(body.qrStyle))) throw badRequest('Unknown QR signature');
+    if (body.theme != null && !QR_THEMES.has(String(body.theme))) throw badRequest('Unknown template theme');
+    assertApprovedDestination(body.settings, body.document);
     await tpl.update({
       name: body.name ?? tpl.name,
       widthMm: body.widthMm != null ? Number(body.widthMm) : tpl.widthMm,
       heightMm: body.heightMm != null ? Number(body.heightMm) : tpl.heightMm,
       elements: body.elements ?? tpl.elements,
-      vendorId: body.vendorId !== undefined ? (Number(body.vendorId) || null) : tpl.vendorId,
-      settings: body.settings !== undefined ? (body.settings ?? null) : tpl.settings,
+      vendorId: actor?.role === 'vendor' ? tpl.vendorId : (body.vendorId !== undefined ? actorVendorId(actor, body.vendorId) : tpl.vendorId),
       libraryTemplateId: body.libraryTemplateId ?? tpl.libraryTemplateId,
+      manifestVersion: body.manifestVersion ?? tpl.manifestVersion,
       qrStyle: body.qrStyle ?? tpl.qrStyle,
       theme: body.theme ?? tpl.theme,
+      settings: body.settings ?? tpl.settings,
+      schemaVersion: body.schemaVersion ?? tpl.schemaVersion,
+      document: body.document ?? tpl.document,
+      revision: tpl.revision + 1,
+      previewThumbnail: body.previewThumbnail ?? tpl.previewThumbnail,
     });
     return tpl;
   },
 
-  deleteQrTemplate: async (id: number) => {
+  duplicateQrTemplate: async (id: number, body: any, actor?: StudioActor) => {
+    const source = await QrTemplate.findByPk(id);
+    if (!source) throw notFound('Design not found');
+    if (actor?.role === 'vendor' && source.vendorId !== null && Number(source.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This design belongs to another workspace');
+    }
+    return QrTemplate.create({
+      name: String(body?.name || `${source.name} copy`).slice(0, 120),
+      widthMm: source.widthMm,
+      heightMm: source.heightMm,
+      elements: source.elements,
+      vendorId: actorVendorId(actor, source.vendorId),
+      libraryTemplateId: source.libraryTemplateId,
+      manifestVersion: source.manifestVersion,
+      qrStyle: source.qrStyle,
+      theme: source.theme,
+      settings: source.settings,
+      schemaVersion: source.schemaVersion,
+      document: source.document,
+      revision: 1,
+      previewThumbnail: source.previewThumbnail,
+    } as any);
+  },
+
+  validateQrTemplate: async (id: number, actor?: StudioActor) => {
+    const tpl = await AdminService.getQrTemplate(id, actor);
+    const settings = (tpl.settings || {}) as Record<string, unknown>;
+    const errors: string[] = [];
+    try { assertApprovedDestination(settings, tpl.document); } catch (error: any) { errors.push(error.message); }
+    if (!isKnownTemplateId(String(tpl.libraryTemplateId || ''))) errors.push('Unknown source template');
+    if (!QR_STYLES.has(String(tpl.qrStyle || ''))) errors.push('Unknown QR signature');
+    if (!QR_THEMES.has(String(tpl.theme || ''))) errors.push('Unknown template theme');
+    return { valid: errors.length === 0, errors, revision: tpl.revision };
+  },
+
+  deleteQrTemplate: async (id: number, actor?: StudioActor) => {
     const tpl = await QrTemplate.findByPk(id);
     if (!tpl) throw notFound('Template not found');
+    assertTemplateWritable(tpl, actor);
     await tpl.destroy();
     return { ok: true };
   },

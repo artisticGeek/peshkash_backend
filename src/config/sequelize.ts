@@ -12,7 +12,12 @@ import { AnalyticsEvent } from '../models/analyticsEvent.model';
 
 dotenv.config();
 
-export const sequelize = new Sequelize(process.env.DATABASE_URL as string, {
+const databaseUrl = process.env.DATABASE_URL
+  || (process.env.LOCAL_DEMO_MODE === 'true' ? 'postgres://demo:demo@127.0.0.1:5432/peshkash_demo' : undefined);
+
+if (!databaseUrl) throw new Error('DATABASE_URL is required (or run npm run dev:studio for the database-free QR Studio demo)');
+
+export const sequelize = new Sequelize(databaseUrl, {
   dialect: 'postgres',
   dialectOptions: {
     family: 4, // Ensure IPv4 preference

@@ -77,10 +77,54 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS ingredients   TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS image         TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS enum_type     VARCHAR(100)`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS sort_order    INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS price         TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS tags          TEXT[] NOT NULL DEFAULT '{}'::text[]`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS allergens     TEXT[] NOT NULL DEFAULT '{}'::text[]`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS is_veg         BOOLEAN`).catch(() => {});
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS spice_level    INTEGER`).catch(() => {});
+
+  // menu — editorial presentation settings used by public item pages
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS item_story_heading VARCHAR(80) NOT NULL DEFAULT 'The backstory'`).catch(() => {});
 
   // vendor — auth and contact-page columns
+  await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone         VARCHAR(20) UNIQUE`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS require_login BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
+
+  // QR Studio — manifest-backed designs. Legacy element arrays remain readable.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS qr_templates (
+      id                  BIGSERIAL PRIMARY KEY,
+      name                TEXT NOT NULL,
+      width_mm            DOUBLE PRECISION NOT NULL DEFAULT 85,
+      height_mm           DOUBLE PRECISION NOT NULL DEFAULT 54,
+      elements            JSONB NOT NULL DEFAULT '[]'::jsonb,
+      library_template_id TEXT,
+      manifest_version    TEXT NOT NULL DEFAULT '3.1.0',
+      qr_style             TEXT NOT NULL DEFAULT 'obsidian-ring',
+      theme                TEXT NOT NULL DEFAULT 'light',
+      settings             JSONB NOT NULL DEFAULT '{}'::jsonb,
+      schema_version       TEXT NOT NULL DEFAULT '1.0.0',
+      document             JSONB,
+      revision             INTEGER NOT NULL DEFAULT 1,
+      preview_thumbnail    TEXT,
+      vendor_id            BIGINT REFERENCES vendor(id) ON DELETE SET NULL,
+      created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS library_template_id TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS manifest_version TEXT NOT NULL DEFAULT '3.1.0'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS qr_style TEXT NOT NULL DEFAULT 'obsidian-ring'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'light'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS schema_version TEXT NOT NULL DEFAULT '1.0.0'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS document JSONB`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS preview_thumbnail TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS vendor_id BIGINT REFERENCES vendor(id) ON DELETE SET NULL`).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_qr_templates_vendor_id ON qr_templates(vendor_id)`).catch(() => {});
 
   // admin_user table — source of truth for who is an admin
   await sequelize.query(`
