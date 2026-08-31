@@ -69,8 +69,8 @@ function unavailable(res: Response) {
 
 export const SharePreviewController = {
   exhibits: async (_req: Request, res: Response) => sendPreview(res, {
-    title: 'The Atelier Edit — Peshkash Exhibits',
-    description: 'An interactive brochure for fashion, boutique collections and jewellery, presented by ArtisticGeek Studios.',
+    title: 'Peshkash for Exhibitions — Every stall, still discoverable',
+    description: 'A short interactive proposal for exhibition organisers: connect every exhibitor, visitor scan and follow-up action with Peshkash.',
     target: `${PUBLIC_ORIGIN}/exhibits`,
     type: 'article',
   }),
@@ -134,4 +134,3 @@ export const SharePreviewController = {
     } catch { return unavailable(res); }
   },
 };
-
