@@ -17,9 +17,11 @@ router.delete('/vendors/:vendorId', AdminController.deleteVendor);
 router.get('/events', AdminController.listEvents);
 router.post('/events', AdminController.createEvent);
 router.put('/events/:eventId', AdminController.updateEvent);
+router.patch('/events/:eventId/experience', AdminController.updateEventExperience);
 router.delete('/events/:eventId', AdminController.deleteEvent);
 router.patch('/events/:eventId/status', AdminController.setEventStatus);
 router.get('/events/:eventId/menus', AdminController.listEventMenus);
+router.get('/events/:eventId/registrations', AdminController.listEventRegistrations);
 router.post('/events/:eventId/menus/:menuId', AdminController.linkMenuToEvent);
 router.delete('/events/:eventId/menus/:menuId', AdminController.unlinkMenuFromEvent);
 

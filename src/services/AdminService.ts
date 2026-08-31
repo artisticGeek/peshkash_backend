@@ -43,7 +43,7 @@ async function hasEventStatusColumn() {
 }
 
 async function eventAttributes() {
-  const attrs = ['id', 'name', 'eventDescription', 'displayName', 'startTime', 'endTime', 'createdAt', 'vendorId'];
+  const attrs = ['id', 'name', 'eventDescription', 'displayName', 'startTime', 'endTime', 'experienceConfig', 'createdAt', 'vendorId'];
   if (await hasEventStatusColumn()) attrs.push('status');
   return attrs;
 }
@@ -161,6 +161,57 @@ function isStatus(value: unknown) {
   return value === 'draft' || value === 'active' || value === 'inactive';
 }
 
+function assertEventWindow(startTime?: Date | null, endTime?: Date | null) {
+  if (startTime && endTime && endTime.getTime() <= startTime.getTime()) {
+    throw badRequest('Event end time must be after its start time');
+  }
+}
+
+function cleanExternalUrl(value: unknown): string {
+  const raw = typeof value === 'string' ? value.trim().slice(0, 1000) : '';
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return ['https:', 'http:'].includes(url.protocol) ? url.toString() : '';
+  } catch { return ''; }
+}
+
+function cleanEventExperience(value: unknown) {
+  const input = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const guests = Array.isArray(input.guests) ? input.guests.slice(0, 40).map((guest: any, index: number) => ({
+    id: String(guest?.id || `guest-${index + 1}`).slice(0, 80),
+    name: String(guest?.name || '').trim().slice(0, 120),
+    role: String(guest?.role || '').trim().slice(0, 120),
+    bio: String(guest?.bio || '').trim().slice(0, 600),
+    imageUrl: cleanExternalUrl(guest?.imageUrl),
+    website: cleanExternalUrl(guest?.website),
+    instagram: cleanExternalUrl(guest?.instagram),
+    youtube: cleanExternalUrl(guest?.youtube),
+    linkedin: cleanExternalUrl(guest?.linkedin),
+    phone: String(guest?.phone || '').trim().slice(0, 30),
+    vendorSlug: String(guest?.vendorSlug || '').trim().slice(0, 120),
+    visible: guest?.visible !== false,
+    sortOrder: Number.isFinite(Number(guest?.sortOrder)) ? Number(guest.sortOrder) : index,
+  })).filter((guest: any) => guest.name) : [];
+  return {
+    enabled: Boolean(input.enabled),
+    eyebrow: String(input.eyebrow || '').trim().slice(0, 100),
+    heroImageUrl: cleanExternalUrl(input.heroImageUrl),
+    venueName: String(input.venueName || '').trim().slice(0, 160),
+    venueAddress: String(input.venueAddress || '').trim().slice(0, 300),
+    mapUrl: cleanExternalUrl(input.mapUrl),
+    registrationEnabled: input.registrationEnabled !== false,
+    reminderEnabled: input.reminderEnabled !== false,
+    reminderMode: input.reminderMode === 'all_day' ? 'all_day' : 'timed',
+    countdownEnabled: input.countdownEnabled !== false,
+    organizerVisible: input.organizerVisible !== false,
+    contactVisible: Boolean(input.contactVisible),
+    livestreamUrl: cleanExternalUrl(input.livestreamUrl),
+    livestreamLabel: String(input.livestreamLabel || 'Watch live').trim().slice(0, 80),
+    guests,
+  };
+}
+
 /** Normalise a login phone to E.164 (+91XXXXXXXXXX) or null if blank. */
 function normalizeLoginPhone(raw: unknown): string | null {
   if (!raw || typeof raw !== 'string') return null;
@@ -202,6 +253,7 @@ function cleanEvent(event: Event) {
     eventDescription: event.eventDescription,
     startTime: event.startTime,
     endTime: event.endTime,
+    experienceConfig: cleanEventExperience(event.experienceConfig),
     status: event.getDataValue('status') ?? derivedStatus,
     vendorId: event.vendorId,
     vendor: event.vendor ? cleanVendor(event.vendor) : undefined,
@@ -279,6 +331,8 @@ function withUrls(mapping: QrLinkMapping, ctx: UrlContext) {
 // When menus are linked/unlinked, keep all event-type QRs for this event
 // pointing to the current first linked menu. Pure URL update — redirect logic unchanged.
 async function syncEventQrUrls(eventId: number, eventName: string) {
+  const event = await Event.findByPk(eventId, { attributes: ['experienceConfig'] });
+  const experienceEnabled = Boolean((event?.experienceConfig as any)?.enabled);
   const links = await EventMenuMapping.findAll({
     where: { eventId },
     attributes: await eventMenuMappingAttributes(),
@@ -286,7 +340,9 @@ async function syncEventQrUrls(eventId: number, eventName: string) {
     order: [['createdAt', 'ASC']],
   });
   const firstMenu = links[0]?.menu;
-  const url = firstMenu
+  const url = experienceEnabled
+    ? `/event/${eventName}`
+    : firstMenu
     ? `/event/${eventName}/menu/${firstMenu.name}`
     : `/event/${eventName}`;
   await QrLinkMapping.update(
@@ -441,13 +497,17 @@ export const AdminService = {
     const duplicate = await Event.findOne({ where: { vendorId, name }, attributes: ['id'] });
     if (duplicate) throw conflict('This vendor already has an event with this slug. Add the year, couple name, location, or a short suffix.');
 
+    const startTime = optionalDate(body.startTime);
+    const endTime = optionalDate(body.endTime);
+    assertEventWindow(startTime, endTime);
     const createData: Record<string, unknown> = {
       vendorId,
       name,
       displayName: requireText(body.displayName, 'Event display name'),
       eventDescription: body.eventDescription?.trim() ?? '',
-      startTime: optionalDate(body.startTime),
-      endTime: optionalDate(body.endTime),
+      startTime,
+      endTime,
+      experienceConfig: cleanEventExperience(body.experienceConfig),
     };
     if (await hasEventStatusColumn()) createData.status = isStatus(body.status) ? body.status : 'draft';
     const event = await Event.create(createData as any);
@@ -465,18 +525,33 @@ export const AdminService = {
     const duplicate = await Event.findOne({ where: { vendorId, name, id: { [Op.ne]: id } }, attributes: ['id'] });
     if (duplicate) throw conflict('This vendor already has an event with this slug. Add the year, couple name, location, or a short suffix.');
 
+    const startTime = optionalDate(body.startTime) ?? null;
+    const endTime = optionalDate(body.endTime) ?? null;
+    assertEventWindow(startTime, endTime);
     const updateData: Record<string, unknown> = {
       vendorId,
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Event display name') : event.displayName,
       eventDescription: body.eventDescription?.trim() ?? '',
-      startTime: optionalDate(body.startTime) ?? null,
-      endTime: optionalDate(body.endTime) ?? null,
+      startTime,
+      endTime,
+      experienceConfig: body.experienceConfig !== undefined
+        ? cleanEventExperience(body.experienceConfig)
+        : event.experienceConfig,
     };
     if (await hasEventStatusColumn()) updateData.status = isStatus(body.status) ? body.status : event.getDataValue('status');
     await event.update(updateData as any);
     await rewriteEventQrDestinations(id, vendorId, oldName, name);
     await syncEventQrUrls(id, name);
+    return AdminService.getEvent(id);
+  },
+
+  updateEventExperience: async (id: number, body: any) => {
+    const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
+    if (!event) throw notFound('Event not found');
+    const experienceConfig = cleanEventExperience(body?.experienceConfig ?? body);
+    await event.update({ experienceConfig } as any);
+    await syncEventQrUrls(id, event.name);
     return AdminService.getEvent(id);
   },
 
@@ -790,6 +865,14 @@ export const AdminService = {
     if (!isStatus(status)) throw badRequest('Status must be draft, active, or inactive');
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    if (status === 'active') {
+      if (!event.startTime || !event.endTime) throw badRequest('Add event start and end times before publishing');
+      const standaloneReady = Boolean((event.experienceConfig as any)?.enabled);
+      if (!standaloneReady) {
+        const linkedMenuCount = await EventMenuMapping.count({ where: { eventId: id } });
+        if (!linkedMenuCount) throw badRequest('Enable and save the public event page, or link at least one menu, before publishing');
+      }
+    }
     await Event.sequelize!.transaction(async (t) => {
       await event.update({ status } as any, { transaction: t });
       if (status === 'active' || status === 'inactive') {

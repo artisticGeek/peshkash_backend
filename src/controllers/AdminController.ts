@@ -30,6 +30,8 @@ export const AdminController = {
   createEvent: (req: Request, res: Response) => handle(res, AdminService.createEvent(req.body), 201),
   updateEvent: (req: Request, res: Response) =>
     handle(res, AdminService.updateEvent(Number(req.params.eventId), req.body)),
+  updateEventExperience: (req: Request, res: Response) =>
+    handle(res, AdminService.updateEventExperience(Number(req.params.eventId), req.body)),
 
   listMenus: (_req: Request, res: Response) => handle(res, AdminService.listMenus()),
   createMenu: (req: Request, res: Response) => handle(res, AdminService.createMenu(req.body), 201),
@@ -38,6 +40,35 @@ export const AdminController = {
 
   listEventMenus: (req: Request, res: Response) =>
     handle(res, AdminService.listEventMenus(Number(req.params.eventId))),
+  listEventRegistrations: async (req: Request, res: Response) => {
+    try {
+      const eventId = Number(req.params.eventId);
+      if (!eventId) return res.status(400).json({ message: 'Valid eventId is required' });
+      const vendorId = req.user?.role === 'vendor' ? Number(req.user.vendorId) : null;
+      const from = req.query.from ? new Date(String(req.query.from)) : null;
+      const to = req.query.to ? new Date(String(req.query.to)) : null;
+      if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime())) || (from && to && from >= to)) {
+        return res.status(400).json({ message: 'A valid registration date range is required' });
+      }
+      const dateFilters = [
+        ...(from ? ['AND r.registered_at >= :from'] : []),
+        ...(to ? ['AND r.registered_at <= :to'] : []),
+      ].join('\n');
+      const rows = await sequelize.query(
+        `SELECT r.id, r.phone, r.registered_at AS "registeredAt", r.updated_at AS "updatedAt"
+           FROM event_registration r
+           JOIN event e ON e.id = r.event_id
+          WHERE r.event_id = :eventId
+            AND (:vendorId IS NULL OR e.vendor_id = :vendorId)
+            ${dateFilters}
+          ORDER BY r.registered_at DESC`,
+        { replacements: { eventId, vendorId, ...(from ? { from: from.toISOString() } : {}), ...(to ? { to: to.toISOString() } : {}) }, type: QueryTypes.SELECT },
+      );
+      return res.json(rows);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message ?? 'Could not load registrations' });
+    }
+  },
   linkMenuToEvent: (req: Request, res: Response) =>
     handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId), req.body?.displayName), 201),
   unlinkMenuFromEvent: (req: Request, res: Response) =>
