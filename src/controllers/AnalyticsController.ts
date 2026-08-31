@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AnalyticsQueryService, buildDateRange, buildDateRangeFromDates } from '../services/AnalyticsQueryService';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { AnalyticsRepo } from '../repositories/analytics.repository';
+import { VendorRepo } from '../repositories/vendor.repository';
 
 type RangeParam = '7d' | '30d' | '90d' | 'all';
 const VALID_RANGES: RangeParam[] = ['7d', '30d', '90d', 'all'];
@@ -202,13 +203,23 @@ export const AnalyticsController = {
    * Called by the frontend useAnalytics composable — always responds 204.
    */
   recordAction: async (req: Request, res: Response) => {
-    const { actionType, vendorId, eventId, menuId, itemId, qrHash, pageUrl, phone } = req.body ?? {};
+    const { actionType, vendorId, vendorSlug, eventId, menuId, itemId, qrHash, pageUrl, phone } = req.body ?? {};
     if (!actionType) return res.status(204).end();
+
+    let resolvedVendorId = vendorId ? Number(vendorId) : undefined;
+    if (!resolvedVendorId && typeof vendorSlug === 'string' && vendorSlug.trim()) {
+      try {
+        const vendor = await VendorRepo.getByName(vendorSlug.trim().toLowerCase().slice(0, 120));
+        resolvedVendorId = vendor ? Number(vendor.id) : undefined;
+      } catch {
+        // Analytics must remain best-effort. A vendor lookup failure must never affect the CTA.
+      }
+    }
 
     AnalyticsRecorder.recordAction(
       {
         actionType: String(actionType).slice(0, 50),
-        vendorId: vendorId ? Number(vendorId) : undefined,
+        vendorId: resolvedVendorId,
         eventId: eventId ? Number(eventId) : undefined,
         menuId: menuId ? Number(menuId) : undefined,
         itemId: itemId ? Number(itemId) : undefined,
