@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { QrMappingController } from '../controllers/QrCodeController';
 import { EventExperienceController } from '../controllers/EventExperienceController';
 import { requireRole } from '../middleware/authMiddleware';
+import { SharePreviewController } from '../controllers/SharePreviewController';
 
 const router = Router();
 
@@ -19,5 +20,13 @@ router.get('/details/:qrHash', QrMappingController.redirectByQrHash);
 
 // Vendor contact card route
 router.get('/vendor/:vendorName', QrMappingController.getVendorCard);
+
+// Social-crawler friendly public links. Each endpoint renders Open Graph/Twitter
+// metadata, then forwards human visitors to the canonical Peshkash page.
+router.get('/share/exhibits', SharePreviewController.exhibits);
+router.get('/share/vendor/:vendorName', SharePreviewController.vendor);
+router.get('/share/event/:eventName/menu/:menuName/item/:itemName', SharePreviewController.item);
+router.get('/share/event/:eventName/menu/:menuName', SharePreviewController.menu);
+router.get('/share/event/:eventName', SharePreviewController.event);
 
 export default router;
