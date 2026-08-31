@@ -109,6 +109,28 @@ export async function runMigrations(): Promise<void> {
   `);
   await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_event_registration_event_id ON event_registration(event_id)`);
 
+  // Permanent custom QR for the Peshkash root landing page. Its stable vendor slug keeps
+  // analytics attributed to ArtisticGeek Studios without depending on environment-specific IDs.
+  await sequelize.query(`ALTER TABLE qr_link_mapping ADD COLUMN IF NOT EXISTS type VARCHAR(20) NOT NULL DEFAULT 'static'`);
+  await sequelize.query(`ALTER TABLE qr_link_mapping ADD COLUMN IF NOT EXISTS vendor_id BIGINT REFERENCES vendor(id)`);
+  await sequelize.query(`ALTER TABLE qr_link_mapping ADD COLUMN IF NOT EXISTS event_id BIGINT REFERENCES event(id)`);
+  await sequelize.query(`
+    UPDATE qr_link_mapping AS qr
+       SET url = '/', type = 'static', vendor_id = vendor.id, event_id = NULL,
+           is_active = true, expires_at = NULL, updated_at = NOW()
+      FROM vendor
+     WHERE vendor.name = 'artisticgeek-studios'
+       AND qr.qr_hash = 'peshkash-home'
+  `);
+  await sequelize.query(`
+    INSERT INTO qr_link_mapping
+      (qr_hash, url, type, vendor_id, event_id, is_active, usage_count, created_at, updated_at)
+    SELECT 'peshkash-home', '/', 'static', vendor.id, NULL, true, 0, NOW(), NOW()
+      FROM vendor
+     WHERE vendor.name = 'artisticgeek-studios'
+       AND NOT EXISTS (SELECT 1 FROM qr_link_mapping WHERE qr_hash = 'peshkash-home')
+  `);
+
   // QR Studio — manifest-backed designs. Legacy element arrays remain readable.
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS qr_templates (
