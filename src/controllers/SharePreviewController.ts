@@ -122,7 +122,7 @@ export const SharePreviewController = {
       if (!vendor?.hasContactPage) return unavailable(res);
       const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/vendor/${encodeURIComponent(vendor.name)}/v1.jpg`;
       return sendPreview(res, {
-        title: `${vendor.displayName} @ Peshkash`,
+        title: vendor.displayName,
         description: cleanDescription(vendor.description, `Meet ${vendor.displayName}, explore their story and save their details on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/vendor/${encodeURIComponent(vendor.name)}`,
         type: 'profile',
@@ -147,7 +147,7 @@ export const SharePreviewController = {
       const previewVersion = Math.max(1, Math.floor(Number(config.socialPreview?.version) || 1));
       const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(event.name)}/v${previewVersion}.jpg`;
       return sendPreview(res, {
-        title: `${event.displayName} @ Peshkash`,
+        title: event.displayName,
         description,
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(event.name)}`,
         type: 'article',
@@ -172,7 +172,7 @@ export const SharePreviewController = {
       const vendor = data?.vendor?.displayName;
       const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/v1.jpg`;
       return sendPreview(res, {
-        title: vendor ? `${menu} by ${vendor} @ Peshkash` : `${menu} @ Peshkash`,
+        title: vendor ? `${menu} by ${vendor}` : menu,
         description: cleanDescription(data?.menu?.description, `Browse ${menu}${vendor ? ` by ${vendor}` : ''} on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}`,
         type: 'article',
@@ -196,7 +196,7 @@ export const SharePreviewController = {
       const vendor = data?.event?.vendor?.displayName || data?.vendor?.displayName;
       const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/item/${encodeURIComponent(req.params.itemName)}/v1.jpg`;
       return sendPreview(res, {
-        title: vendor ? `${item} by ${vendor} @ Peshkash` : `${item} @ Peshkash`,
+        title: vendor ? `${item} by ${vendor}` : item,
         description: cleanDescription(data?.description, `Discover ${item}${vendor ? ` by ${vendor}` : ''} on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/item/${encodeURIComponent(req.params.itemName)}`,
         type: 'article',

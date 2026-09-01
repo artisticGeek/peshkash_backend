@@ -62,9 +62,9 @@ test('generated event card is an exact, compressed 1200 by 630 JPEG', async () =
 
 test('vendor, collection and item cards are distinct compressed 1200 by 630 JPEGs', async () => {
   const inputs = [
-    { kind: 'vendor', title: 'ChapterHer', description: 'Curated fashion and conversations.', context: 'New Delhi', attribution: 'ChapterHer @ Peshkash' },
-    { kind: 'collection', title: 'The Festive Edit', description: 'A considered edit for the season.', context: 'By ChapterHer', attribution: 'ChapterHer @ Peshkash' },
-    { kind: 'item', title: 'Hand-finished Gold Ring', description: 'A sculptural statement with a quiet finish.', context: 'By ChapterHer', attribution: 'ChapterHer @ Peshkash' },
+    { kind: 'vendor', title: 'ChapterHer', description: 'Curated fashion and conversations.', context: 'New Delhi' },
+    { kind: 'collection', title: 'The Festive Edit', description: 'A considered edit for the season.', context: 'By ChapterHer' },
+    { kind: 'item', title: 'Hand-finished Gold Ring', description: 'A sculptural statement with a quiet finish.', context: 'By ChapterHer' },
   ];
   const images = await Promise.all(inputs.map((input) => renderEntityPreviewImage(input)));
   for (const image of images) {
