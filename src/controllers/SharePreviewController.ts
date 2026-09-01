@@ -7,6 +7,7 @@ import { resolveSocialPreview, ResolvedSocialPreview, SocialPreviewConfig } from
 import { MapperUtil } from '../utils/MapperUtil';
 
 const PUBLIC_ORIGIN = (process.env.PUBLIC_APP_ORIGIN || 'https://peshkash.app').replace(/\/$/, '');
+const PUBLIC_API_ORIGIN = (process.env.PUBLIC_API_ORIGIN || 'https://peshkash-backend.onrender.com').replace(/\/$/, '');
 const FALLBACK_IMAGE = `${PUBLIC_ORIGIN}/brand/social/peshkash-home-preview.jpg`;
 const EXHIBITS_IMAGE = `${PUBLIC_ORIGIN}/brand/social/peshkash-exhibits-preview.jpg`;
 
@@ -119,14 +120,18 @@ export const SharePreviewController = {
     try {
       const vendor = await VendorRepo.getByName(req.params.vendorName);
       if (!vendor?.hasContactPage) return unavailable(res);
+      const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/vendor/${encodeURIComponent(vendor.name)}/v1.jpg`;
       return sendPreview(res, {
-        title: `${vendor.displayName} — on Peshkash`,
+        title: `${vendor.displayName} @ Peshkash`,
         description: cleanDescription(vendor.description, `Meet ${vendor.displayName}, explore their story and save their details on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/vendor/${encodeURIComponent(vendor.name)}`,
         type: 'profile',
         imageAlt: `${vendor.displayName} profile on Peshkash`,
         fallbackImageUrl: FALLBACK_IMAGE,
-        candidates: [{ url: vendor.logoUrl, source: 'hero' }],
+        candidates: [
+          { url: generatedImage, source: 'generated' },
+          { url: vendor.logoUrl, source: 'hero' },
+        ],
       });
     } catch { return unavailable(res); }
   },
@@ -136,18 +141,21 @@ export const SharePreviewController = {
       const event = await Event.findOne({ where: { name: req.params.eventName }, include: [Vendor] });
       const config = (event?.experienceConfig || {}) as Record<string, any>;
       if (!event || !config.enabled || event.status !== 'active') return unavailable(res);
-      const vendor = event.vendor?.displayName;
       const context = eventContext(event);
-      const fallbackDescription = [context, `Discover ${event.displayName}, event details, guests and reminders on Peshkash.`].filter(Boolean).join('. ');
+      const fallbackDescription = `Discover ${event.displayName}, event details, guests and reminders on Peshkash.`;
+      const description = [cleanDescription(event.eventDescription, fallbackDescription), context].filter(Boolean).join(' · ').slice(0, 220);
+      const previewVersion = Math.max(1, Math.floor(Number(config.socialPreview?.version) || 1));
+      const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(event.name)}/v${previewVersion}.jpg`;
       return sendPreview(res, {
-        title: vendor ? `${event.displayName} by ${vendor} — Peshkash` : `${event.displayName} — Peshkash`,
-        description: cleanDescription(event.eventDescription, fallbackDescription),
+        title: `${event.displayName} @ Peshkash`,
+        description,
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(event.name)}`,
         type: 'article',
         imageAlt: [event.displayName, context].filter(Boolean).join(' — '),
         fallbackImageUrl: FALLBACK_IMAGE,
         config: config.socialPreview as SocialPreviewConfig,
         candidates: [
+          { url: generatedImage, source: 'generated' },
           { url: config.heroImageUrl, source: 'hero' },
           { url: event.vendor?.logoUrl, source: 'hero' },
         ],
@@ -162,14 +170,16 @@ export const SharePreviewController = {
       const data: any = isEventActive ? MapperUtil.mapActiveEventResponse(mapping) : MapperUtil.mapFallbackEventResponse(mapping);
       const menu = data?.menu?.displayName || req.params.menuName;
       const vendor = data?.vendor?.displayName;
+      const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/v1.jpg`;
       return sendPreview(res, {
-        title: vendor ? `${menu} by ${vendor} — Peshkash` : `${menu} — Peshkash`,
+        title: vendor ? `${menu} by ${vendor} @ Peshkash` : `${menu} @ Peshkash`,
         description: cleanDescription(data?.menu?.description, `Browse ${menu}${vendor ? ` by ${vendor}` : ''} on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}`,
         type: 'article',
         imageAlt: `${menu}${vendor ? ` collection by ${vendor}` : ' collection'} on Peshkash`,
         fallbackImageUrl: FALLBACK_IMAGE,
         candidates: [
+          { url: generatedImage, source: 'generated' },
           { url: firstMenuImage(data?.menu?.lineItems), source: 'hero' },
           { url: data?.vendor?.logoUrl, source: 'hero' },
         ],
@@ -179,19 +189,21 @@ export const SharePreviewController = {
 
   item: async (req: Request, res: Response) => {
     try {
-      const { mapping, isEventActive } = await EventMenuMappingService.getMenuForEvent(req.params.eventName, req.params.menuName);
+      const { mapping } = await EventMenuMappingService.getMenuForEvent(req.params.eventName, req.params.menuName);
       if (!mapping) return unavailable(res);
-      const data: any = isEventActive ? MapperUtil.mapActiveEventResponse(mapping, req.params.itemName) : MapperUtil.mapFallbackEventResponse(mapping);
+      const data: any = MapperUtil.mapActiveEventResponse(mapping, req.params.itemName);
       const item = data?.displayName || data?.name || req.params.itemName;
       const vendor = data?.event?.vendor?.displayName || data?.vendor?.displayName;
+      const generatedImage = `${PUBLIC_API_ORIGIN}/api/social-previews/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/item/${encodeURIComponent(req.params.itemName)}/v1.jpg`;
       return sendPreview(res, {
-        title: vendor ? `${item} by ${vendor} — Peshkash` : `${item} — Peshkash`,
+        title: vendor ? `${item} by ${vendor} @ Peshkash` : `${item} @ Peshkash`,
         description: cleanDescription(data?.description, `Discover ${item}${vendor ? ` by ${vendor}` : ''} on Peshkash.`),
         targetUrl: `${PUBLIC_ORIGIN}/event/${encodeURIComponent(req.params.eventName)}/menu/${encodeURIComponent(req.params.menuName)}/item/${encodeURIComponent(req.params.itemName)}`,
         type: 'article',
         imageAlt: `${item}${vendor ? ` by ${vendor}` : ''} on Peshkash`,
         fallbackImageUrl: FALLBACK_IMAGE,
         candidates: [
+          { url: generatedImage, source: 'generated' },
           { url: data?.image, source: 'hero' },
           { url: data?.event?.vendor?.logoUrl || data?.vendor?.logoUrl, source: 'hero' },
         ],

@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { previewDocument } = require('../dist/controllers/SharePreviewController');
 const { resolveSocialPreview } = require('../dist/services/SocialPreviewService');
+const { renderEntityPreviewImage, renderEventPreviewImage } = require('../dist/controllers/SocialPreviewImageController');
+const sharp = require('sharp');
 
 const base = {
   title: 'ChapterHer September Edit',
@@ -41,4 +43,36 @@ test('share HTML has one complete metadata block and escapes supplied copy', () 
   assert.match(html, /ChapterHer &lt;September&gt;/);
   assert.doesNotMatch(html, /ChapterHer <September>/);
   assert.match(html, /rel="canonical" href="https:\/\/peshkash\.app\/event\/chapter-her-sept"/);
+});
+
+test('generated event card is an exact, compressed 1200 by 630 JPEG', async () => {
+  const image = await renderEventPreviewImage({
+    displayName: 'ChapterHer September Edit',
+    eventDescription: 'Festive Edit bringing 30+ labels under the same roof.',
+    startTime: new Date('2026-09-09T03:30:00.000Z'),
+    experienceConfig: { venueName: 'Radisson Jalandhar', venueAddress: 'GT Road, Jalandhar' },
+    vendor: { displayName: 'Niharika Singh & Vidhu Shoor' },
+  });
+  const metadata = await sharp(image).metadata();
+  assert.equal(metadata.format, 'jpeg');
+  assert.equal(metadata.width, 1200);
+  assert.equal(metadata.height, 630);
+  assert.ok(image.length < 350 * 1024, `image was ${image.length} bytes`);
+});
+
+test('vendor, collection and item cards are distinct compressed 1200 by 630 JPEGs', async () => {
+  const inputs = [
+    { kind: 'vendor', title: 'ChapterHer', description: 'Curated fashion and conversations.', context: 'New Delhi', attribution: 'ChapterHer @ Peshkash' },
+    { kind: 'collection', title: 'The Festive Edit', description: 'A considered edit for the season.', context: 'By ChapterHer', attribution: 'ChapterHer @ Peshkash' },
+    { kind: 'item', title: 'Hand-finished Gold Ring', description: 'A sculptural statement with a quiet finish.', context: 'By ChapterHer', attribution: 'ChapterHer @ Peshkash' },
+  ];
+  const images = await Promise.all(inputs.map((input) => renderEntityPreviewImage(input)));
+  for (const image of images) {
+    const metadata = await sharp(image).metadata();
+    assert.equal(metadata.format, 'jpeg');
+    assert.equal(metadata.width, 1200);
+    assert.equal(metadata.height, 630);
+    assert.ok(image.length < 350 * 1024, `image was ${image.length} bytes`);
+  }
+  assert.equal(new Set(images.map((image) => image.toString('base64'))).size, 3);
 });
