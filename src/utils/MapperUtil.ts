@@ -116,6 +116,7 @@ export const MapperUtil = {
     contact: vendor.contact,
     address: vendor.address,
     description: vendor.description,
+    logoUrl: vendor.logoUrl ?? null,
     hasContactPage: vendor.hasContactPage ?? false,
     requireLogin: vendor.requireLogin ?? false,
   }),

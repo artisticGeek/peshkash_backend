@@ -23,6 +23,8 @@ router.get('/vendor/:vendorName', QrMappingController.getVendorCard);
 
 // Social-crawler friendly public links. Each endpoint renders Open Graph/Twitter
 // metadata, then forwards human visitors to the canonical Peshkash page.
+router.get('/share', SharePreviewController.home);
+router.get('/share/home', SharePreviewController.home);
 router.get('/share/exhibits', SharePreviewController.exhibits);
 router.get('/share/vendor/:vendorName', SharePreviewController.vendor);
 router.get('/share/event/:eventName/menu/:menuName/item/:itemName', SharePreviewController.item);

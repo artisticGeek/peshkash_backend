@@ -176,6 +176,21 @@ function cleanExternalUrl(value: unknown): string {
   } catch { return ''; }
 }
 
+function cleanSocialPreview(value: unknown) {
+  const input = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const version = Math.max(1, Math.floor(Number(input.version) || 1));
+  return {
+    imageUrl: cleanExternalUrl(input.imageUrl),
+    imageAlt: String(input.imageAlt || '').trim().slice(0, 220),
+    titleOverride: String(input.titleOverride || '').trim().slice(0, 90),
+    descriptionOverride: String(input.descriptionOverride || '').trim().slice(0, 220),
+    version,
+    generatedImageUrl: cleanExternalUrl(input.generatedImageUrl),
+    generatedAt: input.generatedAt ? String(input.generatedAt).slice(0, 40) : '',
+    source: ['custom', 'generated', 'hero', 'fallback'].includes(input.source) ? input.source : undefined,
+  };
+}
+
 function cleanEventExperience(value: unknown) {
   const input = value && typeof value === 'object' ? value as Record<string, any> : {};
   const guests = Array.isArray(input.guests) ? input.guests.slice(0, 40).map((guest: any, index: number) => ({
@@ -208,6 +223,7 @@ function cleanEventExperience(value: unknown) {
     contactVisible: Boolean(input.contactVisible),
     livestreamUrl: cleanExternalUrl(input.livestreamUrl),
     livestreamLabel: String(input.livestreamLabel || 'Watch live').trim().slice(0, 80),
+    socialPreview: cleanSocialPreview(input.socialPreview),
     guests,
   };
 }

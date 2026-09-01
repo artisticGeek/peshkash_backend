@@ -7,6 +7,7 @@
     "dev": "ts-node-dev -r dotenv/config --respawn --transpile-only src/server.ts",
     "dev:studio": "ts-node-dev -r dotenv/config --respawn --transpile-only src/studioDevServer.ts",
     "build": "tsc",
+    "test": "npm run build && node --test tests/social-preview.test.js",
     "start:studio": "node -r dotenv/config dist/studioDevServer.js",
     "start": "node -r dotenv/config dist/server.js"
   },

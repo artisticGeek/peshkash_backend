@@ -287,13 +287,20 @@ export const OnboardingService = {
   uploadImage: async (vendorName: string, file: Express.Multer.File): Promise<string> => {
     await OnboardingService.getVendorOrThrow(vendorName);
 
-    const ext = file.originalname.split('.').pop();
+    const signatures = {
+      'image/jpeg': file.buffer.length >= 3 && file.buffer[0] === 0xff && file.buffer[1] === 0xd8 && file.buffer[2] === 0xff,
+      'image/png': file.buffer.length >= 8 && file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+      'image/webp': file.buffer.length >= 12 && file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WEBP',
+    } as Record<string, boolean>;
+    if (!signatures[file.mimetype]) throw Object.assign(new Error('Uploaded file is not a valid JPEG, PNG or WebP image'), { status: 400 });
+    if (file.size > 1024 * 1024) throw Object.assign(new Error('Image must be 1 MB or smaller'), { status: 400 });
+    const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as Record<string, string>)[file.mimetype];
     const fileName = `${vendorName}/${Date.now()}.${ext}`;
     const supabase = getSupabase();
 
     const { error } = await supabase.storage
       .from(IMAGE_BUCKET)
-      .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: false });
+      .upload(fileName, file.buffer, { contentType: file.mimetype, cacheControl: '31536000', upsert: false });
 
     if (error) throw Object.assign(new Error(`Image upload failed: ${error.message}`), { status: 500 });
 
