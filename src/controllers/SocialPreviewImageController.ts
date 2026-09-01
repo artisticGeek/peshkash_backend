@@ -37,7 +37,7 @@ function wrapText(value: string, maxCharacters: number, maxLines: number) {
 }
 
 function eventDateParts(startTime?: Date) {
-  if (!startTime) return { day: '—', month: 'EVENT', full: 'Date to be announced' };
+  if (!startTime) return { day: '', month: '', full: 'Date to be announced' };
   const date = new Date(startTime);
   return {
     day: new Intl.DateTimeFormat('en-IN', { day: '2-digit', timeZone: 'Asia/Kolkata' }).format(date),
@@ -50,16 +50,19 @@ function textLines(lines: string[], x: number, firstY: number, lineHeight: numbe
   return lines.map((line, index) => `<text x="${x}" y="${firstY + index * lineHeight}" class="${className}">${escapeXml(line)}</text>`).join('');
 }
 
-function peshkashBrandBlock() {
+function peshkashBrandBlock(large = false) {
+  const logo = large
+    ? { x: 941, y: 258, width: 108, height: 150, nameY: 455, lineY: 488 }
+    : { x: 954, y: 398, width: 82, height: 114, nameY: 548, lineY: 579 };
   return `
-    <svg x="962" y="420" width="66" height="92" viewBox="335 164 181 251" preserveAspectRatio="xMidYMid meet" aria-label="Peshkash logo">
+    <svg x="${logo.x}" y="${logo.y}" width="${logo.width}" height="${logo.height}" viewBox="335 164 181 251" preserveAspectRatio="xMidYMid meet" aria-label="Peshkash logo">
       <path d="M391.5 164H471L516 205L391.5 276.5Z" fill="#E8DBCE"/>
       <path d="M516 205V262.5L470.5 310L391.5 276.5Z" fill="#C5AF9D"/>
       <path d="M391.5 276.5L470.5 310H391.5Z" fill="#8C7667"/>
       <path d="M335 164H392V415L364 389L335 415Z" fill="#BB9057"/>
     </svg>
-    <text x="995" y="548" text-anchor="middle" class="brand">PESHKASH</text>
-    <text x="995" y="579" text-anchor="middle" class="brandLine">One scan. The right moment.</text>`;
+    <text x="995" y="${logo.nameY}" text-anchor="middle" class="brand">PESHKASH</text>
+    <text x="995" y="${logo.lineY}" text-anchor="middle" class="brandLine">One scan. The right moment.</text>`;
 }
 
 export async function renderEntityPreviewImage(input: {
@@ -69,17 +72,10 @@ export async function renderEntityPreviewImage(input: {
   context?: string;
   attribution?: string;
 }) {
-  const labels = {
-    vendor: ['CONTACT', 'VENDOR PROFILE'],
-    collection: ['COLLECTION', 'CURATED ON PESHKASH'],
-    item: ['ITEM', 'DISCOVER ON PESHKASH'],
-  } as const;
-  const [panelTitle, panelContext] = labels[input.kind];
   const titleLines = wrapText(input.title, 18, 3);
   const descriptionLines = wrapText(input.description || `Discover ${input.title} on Peshkash.`, 52, 2);
   const titleStart = titleLines.length === 1 ? 270 : titleLines.length === 2 ? 225 : 185;
-  const kicker = `${input.kind === 'collection' ? 'COLLECTION' : input.kind.toUpperCase()} · PESHKASH`;
-  const context = input.context || (input.kind === 'vendor' ? 'Contact card' : 'Explore on Peshkash');
+  const context = input.context || '';
 
   const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -91,15 +87,12 @@ export async function renderEntityPreviewImage(input: {
         <stop offset="0" stop-color="#211812"/><stop offset="1" stop-color="#36271d"/>
       </linearGradient>
       <style>
-        .kicker{font:700 19px Arial,sans-serif;letter-spacing:5px;fill:#b88c55}
         .title{font:400 64px Georgia,'Times New Roman',serif;fill:#211812}
         .description{font:400 25px Arial,sans-serif;fill:#5f5043}
         .context{font:600 23px Arial,sans-serif;fill:#211812}
         .attribution{font:400 19px Arial,sans-serif;fill:#806e5e}
-        .panelTitle{font:700 34px Arial,sans-serif;letter-spacing:7px;fill:#d1a36a}
-        .panelContext{font:600 16px Arial,sans-serif;letter-spacing:4px;fill:#f7f0e7}
-        .brand{font:700 18px Arial,sans-serif;letter-spacing:4px;fill:#d1a36a}
-        .brandLine{font:400 16px Arial,sans-serif;fill:#d8c7b5}
+        .brand{font:700 21px Arial,sans-serif;letter-spacing:5px;fill:#d1a36a}
+        .brandLine{font:400 17px Arial,sans-serif;fill:#d8c7b5}
       </style>
     </defs>
     <rect width="1200" height="630" fill="url(#paper)"/>
@@ -107,15 +100,12 @@ export async function renderEntityPreviewImage(input: {
     <rect x="60" y="60" width="7" height="510" fill="#b88c55"/>
     <circle cx="1075" cy="106" r="112" fill="none" stroke="#7b5d3f" stroke-width="2"/>
     <circle cx="1134" cy="151" r="112" fill="none" stroke="#a17649" stroke-width="2"/>
-    <text x="105" y="105" class="kicker">${escapeXml(kicker)}</text>
     ${textLines(titleLines, 105, titleStart, 72, 'title')}
     ${textLines(descriptionLines, 108, 435, 35, 'description')}
     <line x1="105" y1="515" x2="735" y2="515" stroke="#cdbca9" stroke-width="1"/>
-    <text x="105" y="554" class="context">${escapeXml(context)}</text>
-    <text x="105" y="585" class="attribution">${escapeXml(input.attribution || 'Presented on Peshkash')}</text>
-    <text x="995" y="315" text-anchor="middle" class="panelTitle">${escapeXml(panelTitle)}</text>
-    <text x="995" y="353" text-anchor="middle" class="panelContext">${escapeXml(panelContext)}</text>
-    ${peshkashBrandBlock()}
+    ${context ? `<text x="105" y="554" class="context">${escapeXml(context)}</text>` : ''}
+    ${input.attribution ? `<text x="105" y="585" class="attribution">${escapeXml(input.attribution)}</text>` : ''}
+    ${peshkashBrandBlock(true)}
   </svg>`;
 
   return sharp(Buffer.from(svg))
@@ -148,7 +138,6 @@ export async function renderEventPreviewImage(event: {
         <stop offset="0" stop-color="#211812"/><stop offset="1" stop-color="#36271d"/>
       </linearGradient>
       <style>
-        .kicker{font:700 19px Arial,sans-serif;letter-spacing:5px;fill:#b88c55}
         .title{font:400 64px Georgia,'Times New Roman',serif;fill:#211812}
         .description{font:400 25px Arial,sans-serif;fill:#5f5043}
         .context{font:600 23px Arial,sans-serif;fill:#211812}
@@ -164,7 +153,6 @@ export async function renderEventPreviewImage(event: {
     <rect x="60" y="60" width="7" height="510" fill="#b88c55"/>
     <circle cx="1075" cy="106" r="112" fill="none" stroke="#7b5d3f" stroke-width="2"/>
     <circle cx="1134" cy="151" r="112" fill="none" stroke="#a17649" stroke-width="2"/>
-    <text x="105" y="105" class="kicker">EVENT · PESHKASH</text>
     ${textLines(titleLines, 105, titleStart, 72, 'title')}
     ${textLines(descriptionLines, 108, 435, 35, 'description')}
     <line x1="105" y1="515" x2="735" y2="515" stroke="#cdbca9" stroke-width="1"/>
@@ -172,7 +160,7 @@ export async function renderEventPreviewImage(event: {
     <text x="105" y="585" class="organizer">${escapeXml(organizer)}</text>
     <text x="995" y="329" text-anchor="middle" class="dateDay">${escapeXml(date.day)}</text>
     <text x="995" y="377" text-anchor="middle" class="dateMonth">${escapeXml(date.month)}</text>
-    ${peshkashBrandBlock()}
+    ${peshkashBrandBlock(!event.startTime)}
   </svg>`;
 
   return sharp(Buffer.from(svg))
@@ -204,8 +192,7 @@ export const SocialPreviewImageController = {
         kind: 'vendor',
         title: vendor.displayName,
         description: vendor.description,
-        context: vendor.address || 'Contact card',
-        attribution: `${vendor.displayName} @ Peshkash`,
+        context: vendor.address || '',
       });
       res.set('Cache-Control', 'public, max-age=31536000, immutable');
       res.set('Content-Type', 'image/jpeg');
@@ -227,8 +214,7 @@ export const SocialPreviewImageController = {
         kind: 'collection',
         title: menuName,
         description: data?.menu?.description,
-        context: vendorName ? `By ${vendorName}` : 'Collection on Peshkash',
-        attribution: vendorName ? `${vendorName} @ Peshkash` : 'Presented on Peshkash',
+        context: vendorName ? `By ${vendorName}` : '',
       });
       res.set('Cache-Control', 'public, max-age=31536000, immutable');
       res.set('Content-Type', 'image/jpeg');
@@ -250,8 +236,7 @@ export const SocialPreviewImageController = {
         kind: 'item',
         title: itemName,
         description: data?.description,
-        context: vendorName ? `By ${vendorName}` : 'Item on Peshkash',
-        attribution: vendorName ? `${vendorName} @ Peshkash` : 'Presented on Peshkash',
+        context: vendorName ? `By ${vendorName}` : '',
       });
       res.set('Cache-Control', 'public, max-age=31536000, immutable');
       res.set('Content-Type', 'image/jpeg');
