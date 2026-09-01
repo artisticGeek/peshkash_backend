@@ -3,7 +3,12 @@ import multer from 'multer';
 import { OnboardingController } from '../controllers/OnboardingController';
 
 const router = Router({ mergeParams: true }); // inherit :vendorName from parent
-const upload = multer({ storage: multer.memoryStorage() });
+const previewImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => callback(null, previewImageTypes.has(file.mimetype)),
+});
 
 // ── Menus ─────────────────────────────────────────────────────────────────────
 router.get('/menus', OnboardingController.listMenus);
