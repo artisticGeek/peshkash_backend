@@ -10,6 +10,7 @@ const PUBLIC_ORIGIN = (process.env.PUBLIC_APP_ORIGIN || 'https://peshkash.app').
 const PUBLIC_API_ORIGIN = (process.env.PUBLIC_API_ORIGIN || 'https://peshkash-backend.onrender.com').replace(/\/$/, '');
 const FALLBACK_IMAGE = `${PUBLIC_ORIGIN}/brand/social/peshkash-home-preview.jpg`;
 const EXHIBITS_IMAGE = `${PUBLIC_ORIGIN}/brand/social/peshkash-exhibits-preview.jpg`;
+const SHOWROOMS_IMAGE = `${PUBLIC_ORIGIN}/brand/social/peshkash-showrooms-preview.png`;
 
 function escapeHtml(value: unknown) {
   return String(value ?? '')
@@ -114,6 +115,16 @@ export const SharePreviewController = {
     imageAlt: 'Peshkash for exhibitions — every stall, still discoverable',
     fallbackImageUrl: FALLBACK_IMAGE,
     candidates: [{ url: EXHIBITS_IMAGE, source: 'hero' }],
+  }),
+
+  showrooms: async (_req: Request, res: Response) => sendPreview(res, {
+    title: 'Peshkash for showrooms',
+    description: 'Your showroom needs a memory. Make products discoverable, customer interest measurable and follow-up informed.',
+    targetUrl: `${PUBLIC_ORIGIN}/showrooms`,
+    type: 'article',
+    imageAlt: 'Peshkash for showrooms — your showroom needs a memory',
+    fallbackImageUrl: FALLBACK_IMAGE,
+    candidates: [{ url: SHOWROOMS_IMAGE, source: 'hero' }],
   }),
 
   vendor: async (req: Request, res: Response) => {

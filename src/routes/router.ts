@@ -29,6 +29,7 @@ router.get('/instagram-avatar/:username', InstagramAvatarController.get);
 router.get('/share', SharePreviewController.home);
 router.get('/share/home', SharePreviewController.home);
 router.get('/share/exhibits', SharePreviewController.exhibits);
+router.get('/share/showrooms', SharePreviewController.showrooms);
 router.get('/share/vendor/:vendorName', SharePreviewController.vendor);
 router.get('/share/event/:eventName/menu/:menuName/item/:itemName', SharePreviewController.item);
 router.get('/share/event/:eventName/menu/:menuName', SharePreviewController.menu);
