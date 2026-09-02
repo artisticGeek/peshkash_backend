@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { previewDocument } = require('../dist/controllers/SharePreviewController');
 const { resolveSocialPreview } = require('../dist/services/SocialPreviewService');
 const { renderEntityPreviewImage, renderEventPreviewImage } = require('../dist/controllers/SocialPreviewImageController');
+const { instagramOgImage } = require('../dist/controllers/InstagramAvatarController');
 const sharp = require('sharp');
 
 const base = {
@@ -75,4 +76,16 @@ test('vendor, collection and item cards are distinct compressed 1200 by 630 JPEG
     assert.ok(image.length < 350 * 1024, `image was ${image.length} bytes`);
   }
   assert.equal(new Set(images.map((image) => image.toString('base64'))).size, 3);
+});
+
+test('Instagram avatar resolver extracts either valid Open Graph meta ordering', () => {
+  assert.equal(
+    instagramOgImage('<meta property="og:image" content="https://scontent.cdninstagram.com/avatar.jpg?x=1&amp;y=2">'),
+    'https://scontent.cdninstagram.com/avatar.jpg?x=1&y=2',
+  );
+  assert.equal(
+    instagramOgImage('<meta content="https://scontent.fbcdn.net/avatar.webp" property="og:image">'),
+    'https://scontent.fbcdn.net/avatar.webp',
+  );
+  assert.equal(instagramOgImage('<html><head></head></html>'), null);
 });

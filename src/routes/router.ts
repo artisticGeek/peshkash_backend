@@ -4,6 +4,7 @@ import { EventExperienceController } from '../controllers/EventExperienceControl
 import { requireRole } from '../middleware/authMiddleware';
 import { SharePreviewController } from '../controllers/SharePreviewController';
 import { SocialPreviewImageController } from '../controllers/SocialPreviewImageController';
+import { InstagramAvatarController } from '../controllers/InstagramAvatarController';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.get('/details/:qrHash', QrMappingController.redirectByQrHash);
 
 // Vendor contact card route
 router.get('/vendor/:vendorName', QrMappingController.getVendorCard);
+router.get('/instagram-avatar/:username', InstagramAvatarController.get);
 
 // Social-crawler friendly public links. Each endpoint renders Open Graph/Twitter
 // metadata, then forwards human visitors to the canonical Peshkash page.
