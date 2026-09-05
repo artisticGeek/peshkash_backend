@@ -30,6 +30,7 @@ import { QueryTypes } from 'sequelize';
 // ── Provider cache (30s TTL — avoids a DB query on every OTP send) ───────────
 let _cachedProvider: string | null = null;
 let _cacheExpiry = 0;
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
 async function getProvider(): Promise<string> {
   if (_cachedProvider && Date.now() < _cacheExpiry) return _cachedProvider;
@@ -57,7 +58,11 @@ function to10Digit(raw: string): string {
 
 async function sendViaFast2Sms(phone: string, otp: string): Promise<void> {
   const apiKey = process.env.FAST2SMS_API_KEY;
-  if (!apiKey) { mockLog(phone, otp, 'fast2sms'); return; }
+  if (!apiKey) {
+    if (isProduction) throw new Error('FAST2SMS_API_KEY is not configured.');
+    mockLog(phone, otp, 'fast2sms');
+    return;
+  }
 
   // Using 'q' (Quick SMS) route — works without KYC/website verification.
   // Custom message supported. Cost: ~₹5/SMS.
@@ -99,12 +104,17 @@ async function sendViaFast2Sms(phone: string, otp: string): Promise<void> {
 
 async function sendVia2Factor(phone: string, otp: string): Promise<void> {
   const apiKey = process.env.TWOFACTOR_API_KEY;
-  if (!apiKey) { mockLog(phone, otp, '2factor'); return; }
+  if (!apiKey) {
+    if (isProduction) throw new Error('TWOFACTOR_API_KEY is not configured.');
+    mockLog(phone, otp, '2factor');
+    return;
+  }
 
-  // No /AUTOGEN suffix — that flag tells 2factor to generate its own OTP.
-  // We pass our own OTP, so just use the plain SMS endpoint.
-  const path = `/API/V1/${apiKey}/SMS/${to10Digit(phone)}/${otp}`;
-  await httpGet('2factor.in', path, '2Factor');
+  // 2Factor accepts a caller-generated OTP at this endpoint. Its documented
+  // method is POST; GET can return a provider error even though the old client
+  // treated the request as delivered.
+  const path = `/API/V1/${encodeURIComponent(apiKey)}/SMS/${encodeURIComponent(to10Digit(phone))}/${encodeURIComponent(otp)}`;
+  await request2Factor(path);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,20 +123,31 @@ function mockLog(phone: string, otp: string, provider: string): void {
   console.log(`\n📱 [SmsService MOCK — ${provider} key not set] To: ${phone}  OTP: ${otp}\n`);
 }
 
-async function httpGet(hostname: string, path: string, label: string): Promise<void> {
-  await new Promise<void>((resolve) => {
-    const req = https.request({ hostname, path, method: 'GET' }, res => {
+async function request2Factor(path: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const req = https.request({ hostname: '2factor.in', path, method: 'POST', timeout: 15_000 }, res => {
       let body = '';
       res.on('data', c => { body += c; });
       res.on('end', () => {
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`2Factor returned HTTP ${res.statusCode ?? 'unknown'}.`));
+          return;
+        }
         try {
-          const r = JSON.parse(body);
-          if (r.Status && r.Status !== 'Success') console.error(`[SmsService] ${label} error:`, r.Details);
-        } catch { /* ignore */ }
-        resolve();
+          const result = JSON.parse(body) as { Status?: string; status?: string; Details?: string; message?: string };
+          const status = String(result.Status ?? result.status ?? '').toLowerCase();
+          if (status !== 'success' && status !== 'sent') {
+            reject(new Error(`2Factor rejected OTP delivery: ${result.Details ?? result.message ?? 'unknown error'}`));
+            return;
+          }
+          resolve();
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error('Invalid response from 2Factor.'));
+        }
       });
     });
-    req.on('error', err => { console.error(`[SmsService] ${label} request failed:`, err.message); resolve(); });
+    req.on('timeout', () => req.destroy(new Error('2Factor request timed out.')));
+    req.on('error', reject);
     req.end();
   });
 }

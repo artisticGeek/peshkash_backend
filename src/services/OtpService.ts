@@ -48,11 +48,14 @@ export const OtpService = {
     const record: OtpRecord = { otp, attempts: 0 };
 
     if (redis) {
-      await redis.set(
+      // Do not send a code unless it was stored successfully. Swallowing a
+      // Redis write error produces an SMS that can never be verified.
+      const stored = await redis.set(
         OTP_PREFIX + phone,
         JSON.stringify(record),
         'EX', OTP_TTL
-      ).catch(() => {});
+      );
+      if (stored !== 'OK') throw new Error('Could not store OTP.');
     } else {
       inMemory.set(phone, { record, expiresAt: Date.now() + OTP_TTL * 1000 });
     }
@@ -69,27 +72,30 @@ export const OtpService = {
     const key = OTP_PREFIX + phone;
 
     if (redis) {
-      const raw = await redis.get(key).catch(() => null);
+      // Redis failures are server errors, not invalid codes. Let the controller
+      // report a verification failure instead of misleading the user.
+      const raw = await redis.get(key);
       if (!raw) return false;
 
       let record: OtpRecord;
       try { record = JSON.parse(raw); }
       catch { return false; }
 
+      // Check the code before charging an attempt. The old order rejected a
+      // correct code on the third submission because attempts reached the
+      // limit first.
+      if (record.otp === otp) {
+        await redis.del(key);
+        return true;
+      }
+
       record.attempts++;
-
       if (record.attempts >= MAX_ATTEMPTS) {
-        await redis.del(key).catch(() => {});
-        return false;
+        await redis.del(key);
+      } else {
+        await redis.set(key, JSON.stringify(record), 'KEEPTTL');
       }
-
-      if (record.otp !== otp) {
-        await redis.set(key, JSON.stringify(record), 'KEEPTTL').catch(() => {});
-        return false;
-      }
-
-      await redis.del(key).catch(() => {});
-      return true;
+      return false;
 
     } else {
       // In-memory path
@@ -99,17 +105,14 @@ export const OtpService = {
         return false;
       }
 
-      entry.record.attempts++;
-
-      if (entry.record.attempts >= MAX_ATTEMPTS) {
+      if (entry.record.otp === otp) {
         inMemory.delete(phone);
-        return false;
+        return true;
       }
 
-      if (entry.record.otp !== otp) return false;
-
-      inMemory.delete(phone);
-      return true;
+      entry.record.attempts++;
+      if (entry.record.attempts >= MAX_ATTEMPTS) inMemory.delete(phone);
+      return false;
     }
   },
 };
