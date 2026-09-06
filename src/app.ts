@@ -42,6 +42,19 @@ app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// Catch-all error handler — without this, any thrown/next(err) error (e.g. a
+// Multer file-size rejection) falls through to Express's default HTML error
+// page: a raw stack trace with a 500, which breaks JSON-expecting clients and
+// leaks server file paths.
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    res.status(400).json({ message: 'Image must be 8 MB or smaller.' });
+    return;
+  }
+  console.error('Unhandled error:', err);
+  res.status(err?.status || 500).json({ message: err?.message || 'Something went wrong.' });
+});
+
 /**
  * runMigrations — idempotent column additions executed BEFORE the server
  * starts accepting traffic. Every statement uses IF NOT EXISTS / ON CONFLICT

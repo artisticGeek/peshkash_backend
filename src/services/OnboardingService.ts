@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import WebSocket from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import { OnboardingRepo } from '../repositories/onboarding.repository';
 import {
@@ -24,7 +25,11 @@ function getRazorpay() {
 function getSupabase() {
   return createClient(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
+    process.env.SUPABASE_SERVICE_KEY!,
+    // Only Storage is used here, but the client eagerly constructs a
+    // RealtimeClient regardless, which throws on Node < 22 without a
+    // WebSocket global unless a transport is supplied explicitly.
+    { realtime: { transport: WebSocket as any } }
   );
 }
 
@@ -293,7 +298,7 @@ export const OnboardingService = {
       'image/webp': file.buffer.length >= 12 && file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WEBP',
     } as Record<string, boolean>;
     if (!signatures[file.mimetype]) throw Object.assign(new Error('Uploaded file is not a valid JPEG, PNG or WebP image'), { status: 400 });
-    if (file.size > 1024 * 1024) throw Object.assign(new Error('Image must be 1 MB or smaller'), { status: 400 });
+    if (file.size > 8 * 1024 * 1024) throw Object.assign(new Error('Image must be 8 MB or smaller'), { status: 400 });
     const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as Record<string, string>)[file.mimetype];
     const fileName = `${vendorName}/${Date.now()}.${ext}`;
     const supabase = getSupabase();
