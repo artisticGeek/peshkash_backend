@@ -91,6 +91,30 @@ export const OtpService = {
   async verifyOtp(phone: string, otp: string): Promise<boolean> {
     const key = OTP_PREFIX + phone;
 
+    // Check in-memory first, regardless of the current redisUsable() state.
+    // degradedUntil is a short, independent cooldown — if sendOtp degraded to
+    // memory because a single Redis command failed, that cooldown can easily
+    // lapse before the user finishes typing the code (OTP entry routinely
+    // takes well over 30s). Deciding verify's store from the *current*
+    // status instead of "wherever send actually wrote it" meant a correct
+    // code looked up an empty Redis key and was rejected. Checking memory
+    // first makes send and verify agree on the same record regardless of
+    // what Redis's status has drifted to in between.
+    const memEntry = inMemory.get(phone);
+    if (memEntry) {
+      if (Date.now() > memEntry.expiresAt) {
+        inMemory.delete(phone);
+        return false;
+      }
+      if (memEntry.record.otp === otp) {
+        inMemory.delete(phone);
+        return true;
+      }
+      memEntry.record.attempts++;
+      if (memEntry.record.attempts >= MAX_ATTEMPTS) inMemory.delete(phone);
+      return false;
+    }
+
     if (redisUsable()) {
       try {
         const raw = await redis!.get(key);
@@ -116,30 +140,12 @@ export const OtpService = {
         }
         return false;
       } catch (err: any) {
-        // Redis degraded mid-flight — the OTP was almost certainly stored via
-        // Redis too, so there's nothing left to check; fail safe (not found)
-        // rather than crash, and stop hitting Redis for a while.
         console.error('[OtpService] Redis read failed, degrading to in-memory:', err?.message);
         degrade();
         return false;
       }
-
-    } else {
-      // In-memory path
-      const entry = inMemory.get(phone);
-      if (!entry || Date.now() > entry.expiresAt) {
-        inMemory.delete(phone);
-        return false;
-      }
-
-      if (entry.record.otp === otp) {
-        inMemory.delete(phone);
-        return true;
-      }
-
-      entry.record.attempts++;
-      if (entry.record.attempts >= MAX_ATTEMPTS) inMemory.delete(phone);
-      return false;
     }
+
+    return false;
   },
 };
