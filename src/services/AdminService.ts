@@ -284,6 +284,7 @@ function cleanMenu(menu: Menu) {
     displayName: menu.displayName,
     description: menu.description,
     itemStoryHeading: menu.itemStoryHeading || 'The backstory',
+    elaborateDescriptions: menu.elaborateDescriptions ?? false,
     isActive: menu.isActive,
     vendorId: menu.vendorId,
     type: menu.getDataValue('type') ?? 'generic',
@@ -597,6 +598,7 @@ export const AdminService = {
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || null,
       itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory',
+      elaborateDescriptions: Boolean(body.elaborateDescriptions),
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       type: menuType,
       sourceMenuId: body.sourceMenuId ? Number(body.sourceMenuId) : null,
@@ -623,6 +625,9 @@ export const AdminService = {
       itemStoryHeading: body.itemStoryHeading !== undefined
         ? (body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory')
         : menu.itemStoryHeading,
+      elaborateDescriptions: body.elaborateDescriptions !== undefined
+        ? Boolean(body.elaborateDescriptions)
+        : menu.elaborateDescriptions,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : menu.isActive,
     });
     await rewriteMenuQrDestinations(oldVendorId, vendorId, oldName, name);

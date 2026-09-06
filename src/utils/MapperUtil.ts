@@ -150,6 +150,7 @@ export const MapperUtil = {
         displayName: mapping.menu?.displayName,
         description: mapping.menu?.description,
         itemStoryHeading: mapping.menu?.itemStoryHeading || 'The backstory',
+        elaborateDescriptions: mapping.menu?.elaborateDescriptions ?? false,
         isActive: mapping.menu?.isActive,
         type: mapping.menu?.getDataValue?.('type') ?? 'generic',
         createdAt: mapping.menu?.createdAt,
@@ -172,6 +173,7 @@ export const MapperUtil = {
         displayName: mapping.menu?.displayName,
         description: mapping.menu?.description,
         itemStoryHeading: mapping.menu?.itemStoryHeading || 'The backstory',
+        elaborateDescriptions: mapping.menu?.elaborateDescriptions ?? false,
         isActive: mapping.menu?.isActive,
         type: mapping.menu?.getDataValue?.('type') ?? 'generic',
         createdAt: mapping.menu?.createdAt,
@@ -188,6 +190,7 @@ function getMenuSummary(menu: Menu) {
     displayName: menu.displayName,
     description: menu.description,
     itemStoryHeading: menu.itemStoryHeading || 'The backstory',
+    elaborateDescriptions: menu.elaborateDescriptions ?? false,
     isActive: menu.isActive,
     type: menu.getDataValue?.('type') ?? 'generic',
   }
