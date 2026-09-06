@@ -3,11 +3,17 @@ import multer from 'multer';
 import { OnboardingController } from '../controllers/OnboardingController';
 
 const router = Router({ mergeParams: true }); // inherit :vendorName from parent
-const previewImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// Matches the 8 MB limit the frontend already advertises to the user (was
+// mismatched at 1 MB here, so any real photo between 1-8 MB silently crashed
+// the request instead of failing with a clear error).
+// No fileFilter here: rejecting an unsupported type by silently dropping the
+// file (multer's fileFilter convention) left req.file undefined, which the
+// controller then reported as "No file provided" — misleading when a file
+// *was* selected. OnboardingService.uploadImage already does a proper
+// signature check and throws a specific, accurate error message instead.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => callback(null, previewImageTypes.has(file.mimetype)),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
 });
 
 // ── Menus ─────────────────────────────────────────────────────────────────────
