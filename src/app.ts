@@ -218,6 +218,10 @@ export async function runMigrations(): Promise<void> {
     INSERT INTO app_config (key, value) VALUES ('sms_provider', '2factor')
     ON CONFLICT (key) DO NOTHING
   `).catch(() => {});
+  await sequelize.query(`
+    INSERT INTO app_config (key, value) VALUES ('analytics_drain_max_interval_ms', '20000')
+    ON CONFLICT (key) DO NOTHING
+  `).catch(() => {});
 
   console.log('✅ Migrations complete');
 }
