@@ -17,40 +17,25 @@
  *     WHERE key = 'analytics_drain_max_interval_ms';
  *
  * Scaling path (when you outgrow free tier):
- *   1. Remove startDrainLoop() from app.ts
+ *   1. Remove the startDrainLoop() call from server.ts
  *   2. Add a separate Render worker dyno that runs:
  *        import { startDrainLoop } from './workers/analyticsWorker'
  *        startDrainLoop()
  *   No other code changes needed — the queue interface stays identical.
  */
 
-import { sequelize } from '../config/sequelize';
-import { QueryTypes } from 'sequelize';
+import { makeAppConfigReader } from '../utils/AppConfigUtil';
 import { AnalyticsQueue } from '../services/AnalyticsQueue';
 
 const MIN_INTERVAL_MS         = 500;     // flush this often while the queue is active
 const DEFAULT_MAX_INTERVAL_MS = 20_000;  // back off to this often once idle, absent DB config
-const CONFIG_KEY              = 'analytics_drain_max_interval_ms';
-const LOG_EVERY_N             = 120;     // log throughput every ~this many non-empty drains
 
-// ── Max-interval cache (30s TTL — avoids a DB query on every idle tick) ──────
-let _cachedMaxInterval: number | null = null;
-let _cacheExpiry = 0;
+const readMaxIntervalConfig = makeAppConfigReader('analytics_drain_max_interval_ms', String(DEFAULT_MAX_INTERVAL_MS));
+const LOG_EVERY_N = 120; // log throughput every ~this many non-empty drains
 
 async function getMaxInterval(): Promise<number> {
-  if (_cachedMaxInterval !== null && Date.now() < _cacheExpiry) return _cachedMaxInterval;
-  try {
-    const rows = await sequelize.query<{ value: string }>(
-      `SELECT value FROM app_config WHERE key = '${CONFIG_KEY}' LIMIT 1`,
-      { type: QueryTypes.SELECT }
-    );
-    const parsed = Number(rows[0]?.value);
-    _cachedMaxInterval = Number.isFinite(parsed) && parsed >= MIN_INTERVAL_MS ? parsed : DEFAULT_MAX_INTERVAL_MS;
-  } catch {
-    _cachedMaxInterval = DEFAULT_MAX_INTERVAL_MS; // safe default if DB unavailable
-  }
-  _cacheExpiry = Date.now() + 30_000;
-  return _cachedMaxInterval;
+  const parsed = Number(await readMaxIntervalConfig());
+  return Number.isFinite(parsed) && parsed >= MIN_INTERVAL_MS ? parsed : DEFAULT_MAX_INTERVAL_MS;
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
