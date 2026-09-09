@@ -226,6 +226,10 @@ export async function runMigrations(): Promise<void> {
     INSERT INTO app_config (key, value) VALUES ('disable_inspect', 'false')
     ON CONFLICT (key) DO NOTHING
   `).catch(() => {});
+  await sequelize.query(`
+    INSERT INTO app_config (key, value) VALUES ('require_login_renag_ms', '5000')
+    ON CONFLICT (key) DO NOTHING
+  `).catch(() => {});
 
   console.log('✅ Migrations complete');
 }
