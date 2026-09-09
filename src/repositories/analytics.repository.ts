@@ -784,6 +784,7 @@ export const AnalyticsRepo = {
          COALESCE(ae.qr_status, '—')                                          AS "QR Status",
          COALESCE(ae.device_type, 'unknown')                                   AS "Device",
          SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 8)             AS "Session ID",
+         COALESCE(ae.phone, '—')                                               AS "Phone",
          COALESCE(ae.referrer, '—')                                            AS "Referrer",
          COALESCE(ae.user_agent, '—')                                          AS "User Agent",
          COALESCE(v.display_name, '—')                                         AS "Vendor"
