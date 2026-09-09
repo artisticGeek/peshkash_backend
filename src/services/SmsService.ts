@@ -24,28 +24,11 @@
  */
 
 import https from 'https';
-import { sequelize } from '../config/sequelize';
-import { QueryTypes } from 'sequelize';
+import { makeAppConfigReader } from '../utils/AppConfigUtil';
 
 // ── Provider cache (30s TTL — avoids a DB query on every OTP send) ───────────
-let _cachedProvider: string | null = null;
-let _cacheExpiry = 0;
+const getProvider = makeAppConfigReader('sms_provider', 'fast2sms');
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-
-async function getProvider(): Promise<string> {
-  if (_cachedProvider && Date.now() < _cacheExpiry) return _cachedProvider;
-  try {
-    const rows = await sequelize.query<{ value: string }>(
-      `SELECT value FROM app_config WHERE key = 'sms_provider' LIMIT 1`,
-      { type: QueryTypes.SELECT }
-    );
-    _cachedProvider = rows[0]?.value ?? 'fast2sms';
-  } catch {
-    _cachedProvider = 'fast2sms'; // safe default if DB unavailable
-  }
-  _cacheExpiry = Date.now() + 30_000;
-  return _cachedProvider;
-}
 
 function to10Digit(raw: string): string {
   const digits = raw.replace(/\D/g, '');

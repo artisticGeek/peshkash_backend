@@ -2,26 +2,41 @@
  * Analytics drain loop — runs inside the main Express process.
  *
  * Drains the Redis queue into Postgres, polling as fast as MIN_INTERVAL_MS
- * while events are flowing and backing off toward MAX_INTERVAL_MS when the
- * queue is empty. A fixed-rate poll (the previous approach) sent an RPOP to
- * Redis every 500ms forever — ~5.2M requests/month at idle alone, enough to
- * exhaust Upstash's free-tier request quota on its own and take down every
- * other Redis-backed feature (OTP login included, since it shares the same
- * instance) once the quota is hit.
+ * while events are flowing and backing off toward the configured max interval
+ * when the queue is empty. A fixed-rate poll (the original approach) sent an
+ * RPOP to Redis every 500ms forever — ~5.2M requests/month at idle alone,
+ * enough to exhaust Upstash's free-tier request quota on its own and take
+ * down every other Redis-backed feature (OTP login included, since it shares
+ * the same instance) once the quota is hit.
+ *
+ * Max idle interval is DB-configured, same pattern as SmsService's provider:
+ *   app_config WHERE key = 'analytics_drain_max_interval_ms'  (default: 20000)
+ *
+ * To change it, run directly in the DB:
+ *   UPDATE app_config SET value = '30000', updated_at = NOW()
+ *     WHERE key = 'analytics_drain_max_interval_ms';
  *
  * Scaling path (when you outgrow free tier):
- *   1. Remove startDrainLoop() from app.ts
+ *   1. Remove the startDrainLoop() call from server.ts
  *   2. Add a separate Render worker dyno that runs:
  *        import { startDrainLoop } from './workers/analyticsWorker'
  *        startDrainLoop()
  *   No other code changes needed — the queue interface stays identical.
  */
 
+import { makeAppConfigReader } from '../utils/AppConfigUtil';
 import { AnalyticsQueue } from '../services/AnalyticsQueue';
 
-const MIN_INTERVAL_MS = 500;    // flush this often while the queue is active
-const MAX_INTERVAL_MS = 10_000; // back off to this often once idle
-const LOG_EVERY_N      = 120;   // log throughput every ~this many non-empty drains
+const MIN_INTERVAL_MS         = 500;     // flush this often while the queue is active
+const DEFAULT_MAX_INTERVAL_MS = 20_000;  // back off to this often once idle, absent DB config
+
+const readMaxIntervalConfig = makeAppConfigReader('analytics_drain_max_interval_ms', String(DEFAULT_MAX_INTERVAL_MS));
+const LOG_EVERY_N = 120; // log throughput every ~this many non-empty drains
+
+async function getMaxInterval(): Promise<number> {
+  const parsed = Number(await readMaxIntervalConfig());
+  return Number.isFinite(parsed) && parsed >= MIN_INTERVAL_MS ? parsed : DEFAULT_MAX_INTERVAL_MS;
+}
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let currentInterval = MIN_INTERVAL_MS;
@@ -43,7 +58,8 @@ export function startDrainLoop(): void {
           console.log(`[AnalyticsWorker] flushed=${totalFlushed} total | queue depth=${depth}`);
         }
       } else {
-        currentInterval = Math.min(currentInterval * 2, MAX_INTERVAL_MS);
+        const maxInterval = await getMaxInterval();
+        currentInterval = Math.min(currentInterval * 2, maxInterval);
       }
     } catch {
       // drain() already handles its own errors — this is a safety net
@@ -56,7 +72,7 @@ export function startDrainLoop(): void {
   timer = setTimeout(tick, currentInterval);
   if (timer.unref) timer.unref();
 
-  console.log(`✅ [AnalyticsWorker] drain loop started (${MIN_INTERVAL_MS}-${MAX_INTERVAL_MS}ms adaptive interval, batch=500)`);
+  console.log(`✅ [AnalyticsWorker] drain loop started (${MIN_INTERVAL_MS}ms-${DEFAULT_MAX_INTERVAL_MS}ms default adaptive interval, batch=500)`);
 }
 
 export function stopDrainLoop(): void {
