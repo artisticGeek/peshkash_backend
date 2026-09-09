@@ -5,8 +5,11 @@ import { requireRole } from '../middleware/authMiddleware';
 import { SharePreviewController } from '../controllers/SharePreviewController';
 import { SocialPreviewImageController } from '../controllers/SocialPreviewImageController';
 import { InstagramAvatarController } from '../controllers/InstagramAvatarController';
+import { PublicConfigController } from '../controllers/PublicConfigController';
 
 const router = Router();
+
+router.get('/public-config', PublicConfigController.get);
 
 router.get('/event/:eventName', EventExperienceController.getPublicEvent);
 router.post('/event/:eventName/register', requireRole('customer', 'vendor', 'admin'), EventExperienceController.register);
