@@ -5,6 +5,7 @@ import { QrLinkMappingService } from '../services/QrLinkMappingService';
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { QrLinkMappingRepo } from '../repositories/qrLinkMapping.repository';
 import { VendorRepo } from '../repositories/vendor.repository';
+import { DeviceLinkService } from '../services/DeviceLinkService';
 
 export const QrMappingController = {
   getMenuByEventAndMenuName: async (req: Request, res: Response) => {
@@ -55,10 +56,13 @@ export const QrMappingController = {
   redirectByQrHash: async (req: Request, res: Response) => {
     try {
       const { qrHash } = req.params;   // <- must match :qrHash in router
+      const deviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
 
       if (!qrHash) {
         return res.status(400).json({ error: 'QR hash is required' });
       }
+
+      if (deviceId) DeviceLinkService.touch(deviceId);
 
       const redirectionUrl = await QrLinkMappingService.getHashRedirectionUrl(qrHash);
 
@@ -68,6 +72,7 @@ export const QrMappingController = {
           qrHash,
           qrStatus: 'not_found',
           resolved: false,
+          deviceId,
           req,
         });
         return res.status(404).json({ error: 'QR code not found' });
@@ -107,6 +112,7 @@ export const QrMappingController = {
           resolvedUrl: redirectionUrl.redirectionUrl,
           vendorId,
           eventId,
+          deviceId,
           req,
         });
       }).catch(() => {/* silent — analytics never blocks */});

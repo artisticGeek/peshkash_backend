@@ -74,3 +74,35 @@ export function requireRole(...roles: Role[]) {
     next();
   };
 }
+
+/**
+ * Hard gate — an admin must hold this section grant. The section itself is always
+ * hardcoded in the route definition, never read from the request, so there's nothing
+ * for a client to spoof by sending a different section name.
+ *
+ * Deliberately re-queries admin_section_grant on every request instead of trusting the
+ * `sectionGrants` JWT claim: a token can live up to a year (JWT_TTL_HOURS), and a grant
+ * needs to be revocable immediately by editing one DB row, not by forcing a re-login.
+ *
+ * Non-admin roles (vendor) pass through untouched — they're scoped by vendorId instead.
+ */
+export function requireSection(section: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+    if (req.user.role !== 'admin') { next(); return; }
+    try {
+      const rows = await sequelize.query<{ exists: boolean }>(
+        'SELECT 1 AS exists FROM admin_section_grant WHERE phone = :phone AND section = :section LIMIT 1',
+        { replacements: { phone: req.user.phone, section }, type: QueryTypes.SELECT },
+      );
+      if (!rows.length) {
+        return res.status(403).json({ error: 'Insufficient permissions for this section.' });
+      }
+    } catch {
+      // Table may not exist yet on first boot — allow through rather than lock everyone out
+    }
+    next();
+  };
+}

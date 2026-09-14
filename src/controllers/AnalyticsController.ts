@@ -3,6 +3,7 @@ import { AnalyticsQueryService, buildDateRange, buildDateRangeFromDates } from '
 import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { AnalyticsRepo } from '../repositories/analytics.repository';
 import { VendorRepo } from '../repositories/vendor.repository';
+import { DeviceLinkService } from '../services/DeviceLinkService';
 
 type RangeParam = '7d' | '30d' | '90d' | 'all';
 const VALID_RANGES: RangeParam[] = ['7d', '30d', '90d', 'all'];
@@ -203,8 +204,10 @@ export const AnalyticsController = {
    * Called by the frontend useAnalytics composable — always responds 204.
    */
   recordAction: async (req: Request, res: Response) => {
-    const { actionType, vendorId, vendorSlug, eventId, menuId, itemId, qrHash, pageUrl, phone } = req.body ?? {};
+    const { actionType, vendorId, vendorSlug, eventId, menuId, itemId, qrHash, pageUrl, phone, deviceId } = req.body ?? {};
     if (!actionType) return res.status(204).end();
+
+    if (deviceId) DeviceLinkService.touch(deviceId);
 
     let resolvedVendorId = vendorId ? Number(vendorId) : undefined;
     if (!resolvedVendorId && typeof vendorSlug === 'string' && vendorSlug.trim()) {
@@ -226,6 +229,7 @@ export const AnalyticsController = {
         qrHash: qrHash ? String(qrHash) : undefined,
         pageUrl: pageUrl ? String(pageUrl).slice(0, 2000) : undefined,
         phone: phone ? String(phone).slice(0, 20) : undefined,
+        deviceId: deviceId ? String(deviceId) : undefined,
       },
       req
     );

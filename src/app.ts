@@ -206,6 +206,50 @@ export async function runMigrations(): Promise<void> {
     )
   `).catch(() => {});
 
+  // Admin section grants — flat per-admin list of dashboard sections they can see.
+  // No role hierarchy: every admin is equal, distinguished only by which sections
+  // are granted here. Enforced server-side per request in requireSection(); never
+  // trust the JWT for this (see authMiddleware.ts).
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS admin_section_grant (
+      phone   VARCHAR(20) NOT NULL,
+      section VARCHAR(30) NOT NULL,
+      PRIMARY KEY (phone, section)
+    )
+  `).catch(() => {});
+  // Seed every existing admin with full access so this ships as a no-behavior-change
+  // baseline — an empty grants table would otherwise 403 every current admin.
+  await sequelize.query(`
+    INSERT INTO admin_section_grant (phone, section)
+    SELECT phone, s FROM admin_user,
+      unnest(ARRAY['vendors','events','designer','qr','qr-templates','resources','insights','sessions']) s
+    ON CONFLICT DO NOTHING
+  `).catch(() => {});
+
+  // device_link — maps an anonymous client-held device UUID to the phone that
+  // eventually logs in on that device. Written to only from verified OTP success
+  // (AuthController.verifyOtp) or analytics touch (last_seen_at); never from a
+  // client-supplied device+phone pairing directly.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS device_link (
+      device_id     UUID PRIMARY KEY,
+      phone         VARCHAR(20),
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      linked_at     TIMESTAMPTZ,
+      last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_device_link_phone ON device_link(phone)`).catch(() => {});
+
+  // analytics_event — device identity + OS columns (additive)
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS device_id UUID`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS os VARCHAR(30)`).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_analytics_event_device_id ON analytics_event(device_id)`).catch(() => {});
+  // browser + device_name — same source as os/device_type (User-Agent header, already sent
+  // with every request), just parsed further. No new client permission or field required.
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS browser VARCHAR(60)`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS device_name VARCHAR(60)`).catch(() => {});
+
   // App config table — runtime settings editable directly in the DB
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS app_config (
