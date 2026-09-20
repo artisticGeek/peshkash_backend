@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { InsertPayload } from '../repositories/analytics.repository';
+import { AnalyticsRepo, InsertPayload } from '../repositories/analytics.repository';
 import { AnalyticsQueue } from './AnalyticsQueue';
 
 /** Lightweight UA parser — no third-party dependency */
@@ -93,6 +93,19 @@ export interface ActionPayload {
   deviceId?: string;
 }
 
+function buildActionRow(payload: ActionPayload, req: Request): InsertPayload {
+  const ua = (req.headers['user-agent'] ?? '') as string;
+  const deviceType = parseDeviceType(ua);
+  return {
+    eventType: 'action', actionType: payload.actionType,
+    vendorId: payload.vendorId, eventId: payload.eventId, menuId: payload.menuId,
+    itemId: payload.itemId, qrHash: payload.qrHash, deviceType,
+    os: parseOs(ua), browser: parseBrowser(ua), deviceName: parseDeviceName(ua, deviceType),
+    userAgent: ua.slice(0, 500), pageUrl: payload.pageUrl?.slice(0, 2000),
+    phone: payload.phone?.slice(0, 20), deviceId: payload.deviceId,
+  };
+}
+
 /**
  * AnalyticsRecorder — Single Responsibility: build the event row and hand it
  * to AnalyticsQueue. Never touches the DB directly.
@@ -128,27 +141,14 @@ export const AnalyticsRecorder = {
   },
 
   recordAction(payload: ActionPayload, req: Request): void {
-    const ua         = (req.headers['user-agent'] ?? '') as string;
-    const deviceType = parseDeviceType(ua);
+    AnalyticsQueue.enqueue(buildActionRow(payload, req)); // ~0.1ms, never throws
+  },
 
-    const row: InsertPayload = {
-      eventType:  'action',
-      actionType: payload.actionType,
-      vendorId:   payload.vendorId,
-      eventId:    payload.eventId,
-      menuId:     payload.menuId,
-      itemId:     payload.itemId,
-      qrHash:     payload.qrHash,
-      deviceType,
-      os:         parseOs(ua),
-      browser:    parseBrowser(ua),
-      deviceName: parseDeviceName(ua, deviceType),
-      userAgent:  ua.slice(0, 500),
-      pageUrl:    payload.pageUrl?.slice(0, 2000),
-      phone:      payload.phone?.slice(0, 20),
-      deviceId:   payload.deviceId,
-    };
-
-    AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
+  /**
+   * Bookmarks/reactions are user state, not merely telemetry. Persist them
+   * before acknowledging the command so /home can read its own write.
+   */
+  async recordActionDurable(payload: ActionPayload, req: Request): Promise<void> {
+    await AnalyticsRepo.insert(buildActionRow(payload, req));
   },
 };

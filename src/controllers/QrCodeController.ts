@@ -41,9 +41,26 @@ export const QrMappingController = {
         return res.status(404).json({ message: 'No menu found for the given event' });
       }
 
-      const responseDto = isEventActive
-        ? MapperUtil.mapActiveEventResponse(mapping, itemName)
-        : MapperUtil.mapFallbackEventResponse(mapping);
+      // History retains the item's identity, but a saved link must not bypass
+      // the event's public availability window.
+      if (!isEventActive) {
+        const ended = Boolean(mapping.event?.endTime && mapping.event.endTime < new Date());
+        return res.status(ended ? 410 : 403).json({
+          code: ended ? 'EVENT_EXPIRED' : 'EVENT_UNAVAILABLE',
+          message: ended
+            ? 'This event has ended, so its item details are no longer available.'
+            : 'This event is not available yet.',
+          eventName: mapping.event?.displayName,
+          endedAt: mapping.event?.endTime ?? null,
+        });
+      }
+
+      const targetItem = mapping.menu?.lineItems?.find(item => item.name === itemName);
+      if (!targetItem || !targetItem.isActive) {
+        return res.status(404).json({ code: 'ITEM_UNAVAILABLE', message: 'This item is no longer available.' });
+      }
+
+      const responseDto = MapperUtil.mapActiveEventResponse(mapping, itemName);
 
       return res.json(responseDto);
 

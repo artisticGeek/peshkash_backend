@@ -64,6 +64,38 @@ export const AnalyticsRepo = {
     });
   },
 
+  /**
+   * A person is identified by their verified phone once any of their devices has
+   * been linked; until then the stable device UUID is the anonymous identity.
+   * Phone is deliberately first so one person using two linked devices counts once.
+   */
+  uniqueVisitors: async (f: DateRangeFilter): Promise<{ total: number; identified: number; anonymous: number }> => {
+    const rows = await sequelize.query<{ total: string; identified: string; anonymous: string }>(
+      `WITH scoped AS (
+         SELECT
+           COALESCE(dl.phone, ae.phone) AS verified_phone,
+           COALESCE(ae.device_id::text, SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 12)) AS anonymous_id
+         FROM analytics_event ae
+         LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+         ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+         WHERE ae.created_at BETWEEN :from AND :to
+           ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+           ${f.eventId ? 'AND ae.event_id = :eventId' : ''}
+       )
+       SELECT
+         COUNT(DISTINCT COALESCE(verified_phone, anonymous_id)) AS total,
+         COUNT(DISTINCT verified_phone) FILTER (WHERE verified_phone IS NOT NULL) AS identified,
+         COUNT(DISTINCT anonymous_id) FILTER (WHERE verified_phone IS NULL) AS anonymous
+       FROM scoped`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT },
+    );
+    return {
+      total: Number(rows[0]?.total ?? 0),
+      identified: Number(rows[0]?.identified ?? 0),
+      anonymous: Number(rows[0]?.anonymous ?? 0),
+    };
+  },
+
   /** Scans per period — hourly or daily based on f.granularity */
   scansPerPeriod: async (f: DateRangeFilter): Promise<Array<{ period: string; count: number }>> => {
     const g = f.granularity ?? 'day';

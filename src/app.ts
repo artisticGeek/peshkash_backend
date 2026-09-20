@@ -5,6 +5,7 @@ import onboardingRouter from './routes/onboardingRouter';
 import adminRouter from './routes/adminRouter';
 import analyticsRouter from './routes/analyticsRouter';
 import authRouter from './routes/authRouter';
+import userRouter from './routes/userRouter';
 import { authMiddleware } from './middleware/authMiddleware';
 import { sequelize } from './config/sequelize';
 import { AnalyticsQueue } from './services/AnalyticsQueue';
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use(authMiddleware);
 
 app.use('/api/auth',     authRouter);
+app.use('/api/user',     userRouter);
 app.use('/api', router);
 app.use('/api/onboard/:vendorName', onboardingRouter);
 app.use('/api/admin', adminRouter);
