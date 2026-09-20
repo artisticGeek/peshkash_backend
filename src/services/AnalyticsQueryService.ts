@@ -51,6 +51,9 @@ export interface ItemDetail {
 export interface DashboardSummary {
   totalScans: number;
   totalActions: number;
+  uniqueVisitors: number;
+  identifiedVisitors: number;
+  anonymousVisitors: number;
   /** @deprecated use scansPerPeriod */
   scansPerDay: Array<{ date: string; count: number }>;
   scansPerPeriod: Array<{ period: string; count: number }>;
@@ -88,10 +91,11 @@ export const AnalyticsQueryService = {
 
   /** Main dashboard summary — all vendors, scoped to a vendor, or scoped to an event */
   async getSummary(f: DateRangeFilter): Promise<DashboardSummary> {
-    const [totalScans, totalActions, scansPerPeriod, topQrHashes, topQrDetails, actionBreakdown, actionsPerPeriodByType, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
+    const [totalScans, totalActions, visitors, scansPerPeriod, topQrHashes, topQrDetails, actionBreakdown, actionsPerPeriodByType, deviceSplit, lastActivity, topItemsViewed, topItemsDetailed] =
       await Promise.all([
         AnalyticsRepo.totalScans(f),
         AnalyticsRepo.totalActions(f),
+        AnalyticsRepo.uniqueVisitors(f),
         AnalyticsRepo.scansPerPeriod(f),
         AnalyticsRepo.topQrHashes(f, 10),
         AnalyticsRepo.topQrDetails(f, 10),
@@ -105,6 +109,9 @@ export const AnalyticsQueryService = {
 
     return {
       totalScans, totalActions,
+      uniqueVisitors: visitors.total,
+      identifiedVisitors: visitors.identified,
+      anonymousVisitors: visitors.anonymous,
       scansPerDay: [],      // deprecated field — kept for schema compat
       scansPerPeriod,
       topQrHashes, topQrDetails, actionBreakdown,

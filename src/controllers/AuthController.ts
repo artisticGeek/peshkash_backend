@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { QueryTypes } from 'sequelize';
 import { OtpService } from '../services/OtpService';
 import { AuthService } from '../services/AuthService';
+import { DeviceLinkService } from '../services/DeviceLinkService';
 import { sequelize } from '../config/sequelize';
 
 /** Normalise phone: strip spaces, ensure +91 prefix for Indian numbers */
@@ -57,11 +58,17 @@ export const AuthController = {
       const payload = await AuthService.resolveRole(phone);
       const token   = AuthService.signToken(payload);
 
+      // The only place a device gets linked to a phone — driven by a verified OTP,
+      // never by a client-supplied pairing. Best-effort: never blocks the response.
+      const deviceId = req.body?.deviceId;
+      if (deviceId) DeviceLinkService.link(deviceId, phone).catch(() => {});
+
       return res.json({
         token,
-        role:     payload.role,
-        vendorId: payload.vendorId ?? null,
-        phone:    payload.phone,
+        role:          payload.role,
+        vendorId:      payload.vendorId ?? null,
+        phone:         payload.phone,
+        sectionGrants: payload.sectionGrants ?? [],
       });
     } catch (err: any) {
       console.error('[Auth] verifyOtp error:', err?.message);
@@ -145,4 +152,60 @@ export const AuthController = {
       return res.status(500).json({ error: 'Could not remove admin user.' });
     }
   },
+
+  // ── Admin section grants ─────────────────────────────────────────────────────
+  // Flat list of dashboard sections per admin — no role hierarchy. Re-checked live
+  // on every admin request by requireSection() in authMiddleware.ts; what's returned
+  // here is only ever used to render the grants editor and the nav.
+
+  /**
+   * GET /api/admin/section-grants?phone=X
+   */
+  listSectionGrants: async (req: Request, res: Response) => {
+    const phone = normalisePhone(String(req.query.phone ?? ''));
+    if (!phone) return res.status(400).json({ error: 'Invalid phone number.' });
+
+    try {
+      const rows = await sequelize.query<{ section: string }>(
+        'SELECT section FROM admin_section_grant WHERE phone = :phone ORDER BY section',
+        { replacements: { phone }, type: QueryTypes.SELECT }
+      );
+      return res.json({ phone, sections: rows.map((r) => r.section) });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Could not list section grants.' });
+    }
+  },
+
+  /**
+   * PUT /api/admin/section-grants
+   * Body: { phone: string, sections: string[] }
+   * Replaces the full grant set for one admin.
+   */
+  setSectionGrants: async (req: Request, res: Response) => {
+    const phone = normalisePhone(req.body?.phone ?? '');
+    const sections = Array.isArray(req.body?.sections)
+      ? req.body.sections.filter((s: unknown) => typeof s === 'string' && GRANTABLE_SECTIONS.has(s))
+      : null;
+    if (!phone) return res.status(400).json({ error: 'Invalid phone number.' });
+    if (!sections) return res.status(400).json({ error: 'sections must be an array of section keys.' });
+
+    try {
+      await sequelize.transaction(async (t) => {
+        await sequelize.query('DELETE FROM admin_section_grant WHERE phone = :phone', { replacements: { phone }, transaction: t });
+        for (const section of sections) {
+          await sequelize.query(
+            'INSERT INTO admin_section_grant (phone, section) VALUES (:phone, :section) ON CONFLICT DO NOTHING',
+            { replacements: { phone, section }, transaction: t }
+          );
+        }
+      });
+      return res.json({ ok: true, phone, sections });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Could not update section grants.' });
+    }
+  },
 };
+
+const GRANTABLE_SECTIONS = new Set([
+  'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'engagement', 'sessions',
+]);

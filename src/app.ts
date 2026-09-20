@@ -5,6 +5,8 @@ import onboardingRouter from './routes/onboardingRouter';
 import adminRouter from './routes/adminRouter';
 import analyticsRouter from './routes/analyticsRouter';
 import authRouter from './routes/authRouter';
+import userRouter from './routes/userRouter';
+import engagementRouter from './routes/engagementRouter';
 import { authMiddleware } from './middleware/authMiddleware';
 import { sequelize } from './config/sequelize';
 import { AnalyticsQueue } from './services/AnalyticsQueue';
@@ -20,6 +22,8 @@ app.use(express.json());
 app.use(authMiddleware);
 
 app.use('/api/auth',     authRouter);
+app.use('/api/user',     userRouter);
+app.use('/api/engagement', engagementRouter);
 app.use('/api', router);
 app.use('/api/onboard/:vendorName', onboardingRouter);
 app.use('/api/admin', adminRouter);
@@ -205,6 +209,124 @@ export async function runMigrations(): Promise<void> {
       created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+
+  // Admin section grants — flat per-admin list of dashboard sections they can see.
+  // No role hierarchy: every admin is equal, distinguished only by which sections
+  // are granted here. Enforced server-side per request in requireSection(); never
+  // trust the JWT for this (see authMiddleware.ts).
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS admin_section_grant (
+      phone   VARCHAR(20) NOT NULL,
+      section VARCHAR(30) NOT NULL,
+      PRIMARY KEY (phone, section)
+    )
+  `).catch(() => {});
+  // Seed every existing admin with full access so this ships as a no-behavior-change
+  // baseline — an empty grants table would otherwise 403 every current admin.
+  await sequelize.query(`
+    INSERT INTO admin_section_grant (phone, section)
+    SELECT phone, s FROM admin_user,
+      unnest(ARRAY['vendors','events','designer','qr','qr-templates','resources','insights','engagement','sessions']) s
+    ON CONFLICT DO NOTHING
+  `).catch(() => {});
+
+  // device_link — maps an anonymous client-held device UUID to the phone that
+  // eventually logs in on that device. Written to only from verified OTP success
+  // (AuthController.verifyOtp) or analytics touch (last_seen_at); never from a
+  // client-supplied device+phone pairing directly.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS device_link (
+      device_id     UUID PRIMARY KEY,
+      phone         VARCHAR(20),
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      linked_at     TIMESTAMPTZ,
+      last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_device_link_phone ON device_link(phone)`).catch(() => {});
+
+  // Consent is channel- and vendor-specific. A known phone is never treated as
+  // marketing permission unless an explicit granted row exists here.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS communication_consent (
+      id           BIGSERIAL PRIMARY KEY,
+      phone        VARCHAR(20) NOT NULL,
+      vendor_id    BIGINT NOT NULL REFERENCES vendor(id) ON DELETE CASCADE,
+      channel      VARCHAR(20) NOT NULL CHECK (channel IN ('whatsapp','push')),
+      purpose      VARCHAR(40) NOT NULL DEFAULT 'vendor_updates',
+      status       VARCHAR(20) NOT NULL CHECK (status IN ('granted','revoked')),
+      source       VARCHAR(60) NOT NULL DEFAULT 'preferences',
+      consented_at TIMESTAMPTZ,
+      revoked_at   TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(phone, vendor_id, channel, purpose)
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_communication_consent_vendor ON communication_consent(vendor_id, channel, status)`).catch(() => {});
+
+  // Campaign records are drafts until a configured provider explicitly sends them.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS engagement_campaign (
+      id               BIGSERIAL PRIMARY KEY,
+      vendor_id        BIGINT NOT NULL REFERENCES vendor(id) ON DELETE CASCADE,
+      channel          VARCHAR(20) NOT NULL CHECK (channel IN ('whatsapp','push')),
+      title            VARCHAR(120) NOT NULL,
+      message          TEXT NOT NULL,
+      template_key     VARCHAR(100),
+      status           VARCHAR(20) NOT NULL DEFAULT 'draft',
+      audience_filter  JSONB NOT NULL DEFAULT '{}'::jsonb,
+      recipient_count  INTEGER NOT NULL DEFAULT 0,
+      created_by       VARCHAR(20) NOT NULL,
+      scheduled_at     TIMESTAMPTZ,
+      sent_at          TIMESTAMPTZ,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_engagement_campaign_vendor ON engagement_campaign(vendor_id, created_at DESC)`).catch(() => {});
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS push_subscription (
+      id           BIGSERIAL PRIMARY KEY,
+      phone        VARCHAR(20) NOT NULL,
+      endpoint     TEXT NOT NULL UNIQUE,
+      subscription JSONB NOT NULL,
+      user_agent   TEXT,
+      active       BOOLEAN NOT NULL DEFAULT true,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_push_subscription_phone ON push_subscription(phone, active)`).catch(() => {});
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS engagement_delivery (
+      id                  BIGSERIAL PRIMARY KEY,
+      campaign_id         BIGINT NOT NULL REFERENCES engagement_campaign(id) ON DELETE CASCADE,
+      phone               VARCHAR(20) NOT NULL,
+      target_key          TEXT NOT NULL,
+      channel             VARCHAR(20) NOT NULL,
+      status              VARCHAR(20) NOT NULL,
+      provider_message_id TEXT,
+      error_message       TEXT,
+      attempted_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      delivered_at        TIMESTAMPTZ,
+      UNIQUE(campaign_id, target_key)
+    )
+  `).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_delivery ADD COLUMN IF NOT EXISTS target_key TEXT`).catch(() => {});
+  await sequelize.query(`UPDATE engagement_delivery SET target_key = phone WHERE target_key IS NULL`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_delivery ALTER COLUMN target_key SET NOT NULL`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_delivery DROP CONSTRAINT IF EXISTS engagement_delivery_campaign_id_phone_key`).catch(() => {});
+  await sequelize.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_engagement_delivery_target ON engagement_delivery(campaign_id, target_key)`).catch(() => {});
+
+  // analytics_event — device identity + OS columns (additive)
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS device_id UUID`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS os VARCHAR(30)`).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_analytics_event_device_id ON analytics_event(device_id)`).catch(() => {});
+  // browser + device_name — same source as os/device_type (User-Agent header, already sent
+  // with every request), just parsed further. No new client permission or field required.
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS browser VARCHAR(60)`).catch(() => {});
+  await sequelize.query(`ALTER TABLE analytics_event ADD COLUMN IF NOT EXISTS device_name VARCHAR(60)`).catch(() => {});
 
   // App config table — runtime settings editable directly in the DB
   await sequelize.query(`

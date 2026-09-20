@@ -19,6 +19,10 @@ export interface InsertPayload {
   referrer?: string;
   pageUrl?: string;
   phone?: string;
+  deviceId?: string;
+  os?: string;
+  browser?: string;
+  deviceName?: string;
 }
 
 export interface DateRangeFilter {
@@ -58,6 +62,38 @@ export const AnalyticsRepo = {
         ...(f.eventId  ? { eventId:  f.eventId  } : {}),
       },
     });
+  },
+
+  /**
+   * A person is identified by their verified phone once any of their devices has
+   * been linked; until then the stable device UUID is the anonymous identity.
+   * Phone is deliberately first so one person using two linked devices counts once.
+   */
+  uniqueVisitors: async (f: DateRangeFilter): Promise<{ total: number; identified: number; anonymous: number }> => {
+    const rows = await sequelize.query<{ total: string; identified: string; anonymous: string }>(
+      `WITH scoped AS (
+         SELECT
+           COALESCE(dl.phone, ae.phone) AS verified_phone,
+           COALESCE(ae.device_id::text, SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 12)) AS anonymous_id
+         FROM analytics_event ae
+         LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+         ${f.vendorId ? 'LEFT JOIN qr_link_mapping q ON q.qr_hash = ae.qr_hash' : ''}
+         WHERE ae.created_at BETWEEN :from AND :to
+           ${f.vendorId ? 'AND (ae.vendor_id = :vendorId OR q.vendor_id = :vendorId)' : ''}
+           ${f.eventId ? 'AND ae.event_id = :eventId' : ''}
+       )
+       SELECT
+         COUNT(DISTINCT COALESCE(verified_phone, anonymous_id)) AS total,
+         COUNT(DISTINCT verified_phone) FILTER (WHERE verified_phone IS NOT NULL) AS identified,
+         COUNT(DISTINCT anonymous_id) FILTER (WHERE verified_phone IS NULL) AS anonymous
+       FROM scoped`,
+      { replacements: { from: f.from, to: f.to, vendorId: f.vendorId, eventId: f.eventId }, type: QueryTypes.SELECT },
+    );
+    return {
+      total: Number(rows[0]?.total ?? 0),
+      identified: Number(rows[0]?.identified ?? 0),
+      anonymous: Number(rows[0]?.anonymous ?? 0),
+    };
   },
 
   /** Scans per period — hourly or daily based on f.granularity */
@@ -697,12 +733,13 @@ export const AnalyticsRepo = {
            ae.event_type,
            ae.action_type,
            COALESCE(ae.device_type, 'unknown')                        AS device_type,
-           SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)        AS session_id,
-           ae.phone,
+           COALESCE(ae.device_id::text, SUBSTRING(MD5(COALESCE(ae.user_agent, 'x')), 1, 8)) AS session_id,
+           COALESCE(ae.phone, dl.phone)                                AS phone,
            ae.referrer,
            ae.qr_hash,
            ${pageNameExpr}                                             AS page_name
          FROM analytics_event ae
+         LEFT JOIN device_link dl ON dl.device_id = ae.device_id
          WHERE ${scopeClause}
            AND ae.created_at BETWEEN :from AND :to
          ORDER BY ae.created_at DESC
@@ -783,17 +820,21 @@ export const AnalyticsRepo = {
          COALESCE(ae.qr_hash, '—')                                            AS "QR Hash",
          COALESCE(ae.qr_status, '—')                                          AS "QR Status",
          COALESCE(ae.device_type, 'unknown')                                   AS "Device",
-         SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 8)             AS "Session ID",
-         COALESCE(ae.phone, '—')                                               AS "Phone",
+         COALESCE(ae.device_name, '—')                                        AS "Device Name",
+         COALESCE(ae.os, '—')                                                  AS "OS",
+         COALESCE(ae.browser, '—')                                            AS "Browser",
+         COALESCE(ae.device_id::text, SUBSTRING(MD5(COALESCE(ae.user_agent, 'unknown')), 1, 8)) AS "Device ID",
+         COALESCE(ae.phone, dl.phone, '—')                                     AS "Phone",
          COALESCE(ae.referrer, '—')                                            AS "Referrer",
          COALESCE(ae.user_agent, '—')                                          AS "User Agent",
          COALESCE(v.display_name, '—')                                         AS "Vendor"
        FROM  analytics_event ae
        LEFT JOIN qr_link_mapping qm ON qm.qr_hash = ae.qr_hash
-       LEFT JOIN vendor    v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
-       LEFT JOIN event     e  ON e.id  = ae.event_id
-       LEFT JOIN menu      m  ON m.id  = ae.menu_id
-       LEFT JOIN line_item li ON li.id = ae.item_id
+       LEFT JOIN vendor      v  ON v.id  = COALESCE(ae.vendor_id, qm.vendor_id)
+       LEFT JOIN event       e  ON e.id  = ae.event_id
+       LEFT JOIN menu        m  ON m.id  = ae.menu_id
+       LEFT JOIN line_item   li ON li.id = ae.item_id
+       LEFT JOIN device_link dl ON dl.device_id = ae.device_id
        WHERE (ae.vendor_id = :vendorId OR qm.vendor_id = :vendorId)
          AND ae.created_at BETWEEN :from AND :to
        ORDER BY ae.created_at DESC

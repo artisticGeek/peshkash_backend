@@ -75,4 +75,20 @@ export class AnalyticsEvent extends Model<AnalyticsEvent> {
 
   @Column({ field: 'phone', type: DataType.STRING(20), allowNull: true })
   phone?: string;
+
+  // Client-held UUID (localStorage), tagged on every event before and after login.
+  // Resolved to a phone at read time via a join against device_link — never backfilled here.
+  @Column({ field: 'device_id', type: DataType.UUID, allowNull: true })
+  deviceId?: string;
+
+  @Column({ field: 'os', type: DataType.STRING(30), allowNull: true })
+  os?: string;
+
+  // Browser name + major version and a coarse device label — both parsed from the same
+  // User-Agent header already used for deviceType/os, so no new client permission or field.
+  @Column({ field: 'browser', type: DataType.STRING(60), allowNull: true })
+  browser?: string;
+
+  @Column({ field: 'device_name', type: DataType.STRING(60), allowNull: true })
+  deviceName?: string;
 }

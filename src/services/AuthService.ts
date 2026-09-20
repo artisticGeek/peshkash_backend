@@ -26,6 +26,11 @@ export interface AuthPayload {
   phone:     string;
   role:      Role;
   vendorId?: number | null;
+  // UI convenience only — which dashboard sections to render. NEVER the authorization
+  // source: every admin route re-checks admin_section_grant live (see requireSection in
+  // authMiddleware.ts), because a token can live up to a year and grants must be
+  // revocable immediately by editing a DB row.
+  sectionGrants?: string[];
   iat?:      number; // JWT standard claim — seconds since epoch
   exp?:      number; // JWT standard claim
 }
@@ -52,7 +57,17 @@ export const AuthService = {
         { replacements: { phone: normalised }, type: QueryTypes.SELECT }
       );
       if (rows.length > 0) {
-        return { phone: normalised, role: 'admin', vendorId: null };
+        let sectionGrants: string[] = [];
+        try {
+          const grants = await sequelize.query<{ section: string }>(
+            'SELECT section FROM admin_section_grant WHERE phone = :phone',
+            { replacements: { phone: normalised }, type: QueryTypes.SELECT }
+          );
+          sectionGrants = grants.map((g) => g.section);
+        } catch {
+          // Table might not exist yet on first boot — fall through with no grants
+        }
+        return { phone: normalised, role: 'admin', vendorId: null, sectionGrants };
       }
     } catch {
       // Table might not exist yet on first boot — fall through

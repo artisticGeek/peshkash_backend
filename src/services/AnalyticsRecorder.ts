@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { InsertPayload } from '../repositories/analytics.repository';
+import { AnalyticsRepo, InsertPayload } from '../repositories/analytics.repository';
 import { AnalyticsQueue } from './AnalyticsQueue';
 
 /** Lightweight UA parser — no third-party dependency */
@@ -12,6 +12,63 @@ function parseDeviceType(ua: string): 'mobile' | 'desktop' | 'tablet' | 'unknown
   return 'unknown';
 }
 
+const WINDOWS_NAMES: Record<string, string> = {
+  '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7', '6.0': 'Vista', '5.1': 'XP',
+};
+
+/** Lightweight OS parser — same style as parseDeviceType, no third-party dependency.
+ *  Includes version where the UA string still carries one — desktop Chrome has frozen
+ *  its own reported OS version (User-Agent Reduction), so that case falls back to the
+ *  bare name; iOS/Android/macOS/Firefox/Safari still report real versions. */
+function parseOs(ua: string): string | undefined {
+  if (!ua) return undefined;
+  let m: RegExpExecArray | null;
+  // iOS before macOS — an iPhone/iPad UA also contains "like Mac OS X" as a substring.
+  if ((m = /CPU (?:iPhone )?OS ([\d_]+)/.exec(ua))) return `iOS ${m[1].replace(/_/g, '.')}`;
+  if ((m = /Windows NT ([\d.]+)/.exec(ua))) return `Windows ${WINDOWS_NAMES[m[1]] ?? m[1]}`;
+  if ((m = /Android ([\d.]+)/.exec(ua))) return `Android ${m[1]}`;
+  if ((m = /Mac OS X ([\d_]+)/.exec(ua))) return `macOS ${m[1].replace(/_/g, '.')}`;
+  if (/windows/i.test(ua)) return 'Windows';
+  if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
+  if (/android/i.test(ua)) return 'Android';
+  if (/mac os x|macintosh/i.test(ua)) return 'macOS';
+  if (/linux/i.test(ua)) return 'Linux';
+  return undefined;
+}
+
+/** Browser name + major version. Order matters: Edge/Samsung/Opera/iOS-Chrome/iOS-Firefox
+ *  UAs all also contain "Chrome/" or "Safari/" tokens, so the more specific browser must be
+ *  checked first or every Chromium-based browser would misreport as plain Chrome. */
+function parseBrowser(ua: string): string | undefined {
+  if (!ua) return undefined;
+  let m: RegExpExecArray | null;
+  if ((m = /Edg\/([\d.]+)/.exec(ua)))            return `Edge ${m[1].split('.')[0]}`;
+  if ((m = /SamsungBrowser\/([\d.]+)/.exec(ua)))  return `Samsung Internet ${m[1].split('.')[0]}`;
+  if ((m = /OPR\/([\d.]+)/.exec(ua)))            return `Opera ${m[1].split('.')[0]}`;
+  if ((m = /CriOS\/([\d.]+)/.exec(ua)))          return `Chrome ${m[1].split('.')[0]}`; // Chrome on iOS
+  if ((m = /FxiOS\/([\d.]+)/.exec(ua)))          return `Firefox ${m[1].split('.')[0]}`; // Firefox on iOS
+  if ((m = /Firefox\/([\d.]+)/.exec(ua)))         return `Firefox ${m[1].split('.')[0]}`;
+  if ((m = /Chrome\/([\d.]+)/.exec(ua)))          return `Chrome ${m[1].split('.')[0]}`;
+  if ((m = /Version\/([\d.]+).*Safari/.exec(ua))) return `Safari ${m[1].split('.')[0]}`;
+  if (/Safari/.test(ua)) return 'Safari';
+  if (/MSIE ([\d.]+)/.test(ua) || /Trident/.test(ua)) return 'Internet Explorer';
+  return undefined;
+}
+
+/** Coarse device label from the same UA — not a specific model (iOS/most Android UAs don't
+ *  expose that without extra client-side work), just a friendlier name than deviceType alone. */
+function parseDeviceName(ua: string, deviceType: string): string | undefined {
+  if (!ua) return undefined;
+  if (/iPad/.test(ua))      return 'iPad';
+  if (/iPhone/.test(ua))    return 'iPhone';
+  if (/iPod/.test(ua))      return 'iPod';
+  if (/Android/.test(ua))   return deviceType === 'tablet' ? 'Android Tablet' : 'Android Phone';
+  if (/Macintosh/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua))   return 'Windows PC';
+  if (/Linux/.test(ua))     return 'Linux PC';
+  return undefined;
+}
+
 export interface ScanPayload {
   qrHash: string;
   qrType?: string;
@@ -20,6 +77,7 @@ export interface ScanPayload {
   resolvedUrl?: string;
   vendorId?: number;
   eventId?: number;
+  deviceId?: string;
   req: Request;
 }
 
@@ -32,6 +90,20 @@ export interface ActionPayload {
   qrHash?: string;
   pageUrl?: string;
   phone?: string;
+  deviceId?: string;
+}
+
+function buildActionRow(payload: ActionPayload, req: Request): InsertPayload {
+  const ua = (req.headers['user-agent'] ?? '') as string;
+  const deviceType = parseDeviceType(ua);
+  return {
+    eventType: 'action', actionType: payload.actionType,
+    vendorId: payload.vendorId, eventId: payload.eventId, menuId: payload.menuId,
+    itemId: payload.itemId, qrHash: payload.qrHash, deviceType,
+    os: parseOs(ua), browser: parseBrowser(ua), deviceName: parseDeviceName(ua, deviceType),
+    userAgent: ua.slice(0, 500), pageUrl: payload.pageUrl?.slice(0, 2000),
+    phone: payload.phone?.slice(0, 20), deviceId: payload.deviceId,
+  };
 }
 
 /**
@@ -43,8 +115,9 @@ export interface ActionPayload {
  */
 export const AnalyticsRecorder = {
   recordScan(payload: ScanPayload): void {
-    const ua       = payload.req.headers['user-agent']  ?? '';
-    const referrer = payload.req.headers['referer'] ?? payload.req.headers['referrer'] ?? '';
+    const ua         = (payload.req.headers['user-agent'] ?? '') as string;
+    const referrer    = (payload.req.headers['referer'] ?? payload.req.headers['referrer'] ?? '') as string;
+    const deviceType = parseDeviceType(ua);
 
     const row: InsertPayload = {
       eventType:   'qr_scan',
@@ -55,31 +128,27 @@ export const AnalyticsRecorder = {
       resolvedUrl: payload.resolvedUrl,
       vendorId:    payload.vendorId,
       eventId:     payload.eventId,
-      deviceType:  parseDeviceType(ua as string),
-      userAgent:   (ua as string).slice(0, 500),
-      referrer:    (referrer as string).slice(0, 500),
+      deviceType,
+      os:          parseOs(ua),
+      browser:     parseBrowser(ua),
+      deviceName:  parseDeviceName(ua, deviceType),
+      userAgent:   ua.slice(0, 500),
+      referrer:    referrer.slice(0, 500),
+      deviceId:    payload.deviceId,
     };
 
     AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
   },
 
   recordAction(payload: ActionPayload, req: Request): void {
-    const ua = req.headers['user-agent'] ?? '';
+    AnalyticsQueue.enqueue(buildActionRow(payload, req)); // ~0.1ms, never throws
+  },
 
-    const row: InsertPayload = {
-      eventType:  'action',
-      actionType: payload.actionType,
-      vendorId:   payload.vendorId,
-      eventId:    payload.eventId,
-      menuId:     payload.menuId,
-      itemId:     payload.itemId,
-      qrHash:     payload.qrHash,
-      deviceType: parseDeviceType(ua as string),
-      userAgent:  (ua as string).slice(0, 500),
-      pageUrl:    payload.pageUrl?.slice(0, 2000),
-      phone:      payload.phone?.slice(0, 20),
-    };
-
-    AnalyticsQueue.enqueue(row); // ~0.1ms, never throws
+  /**
+   * Bookmarks/reactions are user state, not merely telemetry. Persist them
+   * before acknowledging the command so /home can read its own write.
+   */
+  async recordActionDurable(payload: ActionPayload, req: Request): Promise<void> {
+    await AnalyticsRepo.insert(buildActionRow(payload, req));
   },
 };
