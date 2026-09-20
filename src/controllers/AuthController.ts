@@ -207,5 +207,5 @@ export const AuthController = {
 };
 
 const GRANTABLE_SECTIONS = new Set([
-  'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'sessions',
+  'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'engagement', 'sessions',
 ]);
