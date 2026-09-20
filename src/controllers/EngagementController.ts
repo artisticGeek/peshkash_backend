@@ -48,10 +48,16 @@ export const EngagementController = {
           { replacements: { vendorId }, type: QueryTypes.SELECT },
         ),
         sequelize.query<{ channel: string; total: string }>(
-          `SELECT channel, COUNT(DISTINCT phone) AS total
-             FROM communication_consent
-            WHERE vendor_id = :vendorId AND status = 'granted'
-            GROUP BY channel`,
+          `SELECT preference.channel, COUNT(DISTINCT preference.phone) AS total
+             FROM user_communication_preference preference
+            WHERE preference.status = 'granted'
+              AND EXISTS (
+                SELECT 1 FROM analytics_event ae
+                LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+                WHERE COALESCE(dl.phone, ae.phone) = preference.phone
+                  AND ae.vendor_id = :vendorId
+              )
+            GROUP BY preference.channel`,
           { replacements: { vendorId }, type: QueryTypes.SELECT },
         ),
         sequelize.query<CampaignRow>(
@@ -102,9 +108,15 @@ export const EngagementController = {
     if (!title || !message) return res.status(400).json({ error: 'Campaign title and message are required.' });
     try {
       const counts = await sequelize.query<{ total: string }>(
-        `SELECT COUNT(DISTINCT phone) AS total
-           FROM communication_consent
-          WHERE vendor_id = :vendorId AND channel = :channel AND status = 'granted'`,
+        `SELECT COUNT(DISTINCT preference.phone) AS total
+           FROM user_communication_preference preference
+          WHERE preference.channel = :channel AND preference.status = 'granted'
+            AND EXISTS (
+              SELECT 1 FROM analytics_event ae
+              LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+              WHERE COALESCE(dl.phone, ae.phone) = preference.phone
+                AND ae.vendor_id = :vendorId
+            )`,
         { replacements: { vendorId, channel }, type: QueryTypes.SELECT },
       );
       const rows = await sequelize.query<CampaignRow>(
@@ -172,18 +184,28 @@ export const EngagementController = {
 
       const recipients = campaign.channel === 'whatsapp'
         ? await sequelize.query<{ phone: string; subscription: null; target_key: string }>(
-            `SELECT DISTINCT phone, NULL::jsonb AS subscription, phone AS target_key
-               FROM communication_consent
-              WHERE vendor_id = :vendorId AND channel = 'whatsapp'
-                AND purpose = 'vendor_updates' AND status = 'granted'`,
+            `SELECT preference.phone, NULL::jsonb AS subscription, preference.phone AS target_key
+               FROM user_communication_preference preference
+              WHERE preference.channel = 'whatsapp' AND preference.status = 'granted'
+                AND EXISTS (
+                  SELECT 1 FROM analytics_event ae
+                  LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+                  WHERE COALESCE(dl.phone, ae.phone) = preference.phone
+                    AND ae.vendor_id = :vendorId
+                )`,
             { replacements: { vendorId }, type: QueryTypes.SELECT },
           )
         : await sequelize.query<{ phone: string; subscription: any; target_key: string }>(
             `SELECT ps.phone, ps.subscription, ps.endpoint AS target_key
-               FROM communication_consent cc
-               JOIN push_subscription ps ON ps.phone = cc.phone AND ps.active = true
-              WHERE cc.vendor_id = :vendorId AND cc.channel = 'push'
-                AND cc.purpose = 'vendor_updates' AND cc.status = 'granted'
+               FROM user_communication_preference preference
+               JOIN push_subscription ps ON ps.phone = preference.phone AND ps.active = true
+              WHERE preference.channel = 'push' AND preference.status = 'granted'
+                AND EXISTS (
+                  SELECT 1 FROM analytics_event ae
+                  LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+                  WHERE COALESCE(dl.phone, ae.phone) = preference.phone
+                    AND ae.vendor_id = :vendorId
+                )
               ORDER BY ps.phone, ps.updated_at DESC`,
             { replacements: { vendorId }, type: QueryTypes.SELECT },
           );

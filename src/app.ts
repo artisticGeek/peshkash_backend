@@ -265,6 +265,24 @@ export async function runMigrations(): Promise<void> {
   `).catch(() => {});
   await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_communication_consent_vendor ON communication_consent(vendor_id, channel, status)`).catch(() => {});
 
+  // End-user channel choices are Peshkash-wide. Vendor relevance is resolved
+  // from the user's interaction history when a campaign audience is built.
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS user_communication_preference (
+      id           BIGSERIAL PRIMARY KEY,
+      phone        VARCHAR(20) NOT NULL,
+      channel      VARCHAR(20) NOT NULL CHECK (channel IN ('whatsapp','push')),
+      status       VARCHAR(20) NOT NULL CHECK (status IN ('granted','revoked')),
+      source       VARCHAR(60) NOT NULL DEFAULT 'user_settings',
+      consented_at TIMESTAMPTZ,
+      revoked_at   TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(phone, channel)
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_user_communication_preference_channel ON user_communication_preference(channel, status)`).catch(() => {});
+
   // Campaign records are drafts until a configured provider explicitly sends them.
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS engagement_campaign (
