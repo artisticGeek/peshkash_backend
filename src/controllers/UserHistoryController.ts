@@ -339,26 +339,73 @@ export const UserHistoryController = {
     }
   },
 
+  getCommunicationSettings: async (req: Request, res: Response) => {
+    try {
+      const rows = await sequelize.query<{ channel: 'whatsapp' | 'push'; status: 'granted' | 'revoked' }>(
+        `SELECT channel, status
+           FROM user_communication_preference
+          WHERE phone = :phone`,
+        { replacements: { phone: req.user!.phone }, type: QueryTypes.SELECT },
+      );
+      const enabled = new Set(rows.filter(row => row.status === 'granted').map(row => row.channel));
+      return res.json({
+        sender: 'Peshkash Updates',
+        whatsappEnabled: enabled.has('whatsapp'),
+        pushEnabled: enabled.has('push'),
+      });
+    } catch (error) {
+      console.error('[UserHistory] communication settings error:', error);
+      return res.status(500).json({ error: 'Communication settings are temporarily unavailable.' });
+    }
+  },
+
+  updateCommunicationSettings: async (req: Request, res: Response) => {
+    const channel = String(req.params.channel || '').toLowerCase();
+    const enabled = req.body?.enabled;
+    if (!['whatsapp', 'push'].includes(channel) || typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'A valid channel and preference are required.' });
+    }
+    try {
+      await sequelize.query(
+        `INSERT INTO user_communication_preference
+           (phone, channel, status, source, consented_at, revoked_at, created_at, updated_at)
+         VALUES
+           (:phone, :channel, :status, 'user_settings',
+            CASE WHEN :enabled THEN NOW() ELSE NULL END,
+            CASE WHEN :enabled THEN NULL ELSE NOW() END, NOW(), NOW())
+         ON CONFLICT (phone, channel) DO UPDATE SET
+           status = EXCLUDED.status,
+           source = EXCLUDED.source,
+           consented_at = CASE WHEN :enabled THEN NOW() ELSE user_communication_preference.consented_at END,
+           revoked_at = CASE WHEN :enabled THEN NULL ELSE NOW() END,
+           updated_at = NOW()`,
+        { replacements: { phone: req.user!.phone, channel, status: enabled ? 'granted' : 'revoked', enabled } },
+      );
+      if (channel === 'push' && !enabled) {
+        await sequelize.query(
+          `UPDATE push_subscription SET active = false, updated_at = NOW() WHERE phone = :phone`,
+          { replacements: { phone: req.user!.phone } },
+        );
+      }
+      return res.json({ channel, enabled });
+    } catch (error) {
+      console.error('[UserHistory] update communication settings error:', error);
+      return res.status(500).json({ error: 'Could not update this setting.' });
+    }
+  },
+
   getPushConfig: async (_req: Request, res: Response) => {
     const publicKey = process.env.VAPID_PUBLIC_KEY || '';
     return res.json({ enabled: Boolean(publicKey && process.env.VAPID_PRIVATE_KEY), publicKey });
   },
 
   subscribeToPush: async (req: Request, res: Response) => {
-    const vendorId = Number(req.body?.vendorId);
     const subscription = req.body?.subscription;
-    if (!Number.isFinite(vendorId) || vendorId <= 0 || typeof subscription?.endpoint !== 'string'
-      || typeof subscription?.keys?.p256dh !== 'string' || typeof subscription?.keys?.auth !== 'string') {
-      return res.status(400).json({ error: 'A valid vendor and browser subscription are required.' });
+    if (typeof subscription?.endpoint !== 'string' || typeof subscription?.keys?.p256dh !== 'string'
+      || typeof subscription?.keys?.auth !== 'string') {
+      return res.status(400).json({ error: 'A valid browser subscription is required.' });
     }
     try {
-      const interacted = await sequelize.query<{ exists: boolean }>(
-        `SELECT true AS exists FROM analytics_event ae
-          LEFT JOIN device_link dl ON dl.device_id = ae.device_id
-         WHERE COALESCE(dl.phone, ae.phone) = :phone AND ae.vendor_id = :vendorId LIMIT 1`,
-        { replacements: { phone: req.user!.phone, vendorId }, type: QueryTypes.SELECT },
-      );
-      if (!interacted.length) return res.status(403).json({ error: 'This vendor is not part of your Peshkash history.' });
       await sequelize.transaction(async transaction => {
         await sequelize.query(
           `INSERT INTO push_subscription (phone, endpoint, subscription, user_agent, active, created_at, updated_at)
@@ -368,15 +415,15 @@ export const UserHistoryController = {
           { replacements: { phone: req.user!.phone, endpoint: subscription.endpoint, subscription: JSON.stringify(subscription), userAgent: req.get('user-agent') || null }, transaction },
         );
         await sequelize.query(
-          `INSERT INTO communication_consent
-             (phone, vendor_id, channel, purpose, status, source, consented_at, revoked_at, created_at, updated_at)
-           VALUES (:phone, :vendorId, 'push', 'vendor_updates', 'granted', 'browser_permission', NOW(), NULL, NOW(), NOW())
-           ON CONFLICT (phone, vendor_id, channel, purpose) DO UPDATE SET
+          `INSERT INTO user_communication_preference
+             (phone, channel, status, source, consented_at, revoked_at, created_at, updated_at)
+           VALUES (:phone, 'push', 'granted', 'browser_permission', NOW(), NULL, NOW(), NOW())
+           ON CONFLICT (phone, channel) DO UPDATE SET
              status = 'granted', source = 'browser_permission', consented_at = NOW(), revoked_at = NULL, updated_at = NOW()`,
-          { replacements: { phone: req.user!.phone, vendorId }, transaction },
+          { replacements: { phone: req.user!.phone }, transaction },
         );
       });
-      return res.json({ vendorId, pushEnabled: true });
+      return res.json({ pushEnabled: true });
     } catch (error) {
       console.error('[UserHistory] push subscribe error:', error);
       return res.status(500).json({ error: 'Could not enable browser notifications.' });
@@ -384,18 +431,22 @@ export const UserHistoryController = {
   },
 
   unsubscribeFromPush: async (req: Request, res: Response) => {
-    const vendorId = Number(req.params.vendorId);
-    if (!Number.isFinite(vendorId) || vendorId <= 0) return res.status(400).json({ error: 'Invalid vendor.' });
     try {
-      await sequelize.query(
-        `INSERT INTO communication_consent
-           (phone, vendor_id, channel, purpose, status, source, consented_at, revoked_at, created_at, updated_at)
-         VALUES (:phone, :vendorId, 'push', 'vendor_updates', 'revoked', 'user_preferences', NULL, NOW(), NOW(), NOW())
-         ON CONFLICT (phone, vendor_id, channel, purpose) DO UPDATE SET
-           status = 'revoked', revoked_at = NOW(), updated_at = NOW()`,
-        { replacements: { phone: req.user!.phone, vendorId } },
-      );
-      return res.json({ vendorId, pushEnabled: false });
+      await sequelize.transaction(async transaction => {
+        await sequelize.query(
+          `INSERT INTO user_communication_preference
+             (phone, channel, status, source, consented_at, revoked_at, created_at, updated_at)
+           VALUES (:phone, 'push', 'revoked', 'user_settings', NULL, NOW(), NOW(), NOW())
+           ON CONFLICT (phone, channel) DO UPDATE SET
+             status = 'revoked', source = 'user_settings', revoked_at = NOW(), updated_at = NOW()`,
+          { replacements: { phone: req.user!.phone }, transaction },
+        );
+        await sequelize.query(
+          `UPDATE push_subscription SET active = false, updated_at = NOW() WHERE phone = :phone`,
+          { replacements: { phone: req.user!.phone }, transaction },
+        );
+      });
+      return res.json({ pushEnabled: false });
     } catch (error) {
       console.error('[UserHistory] push unsubscribe error:', error);
       return res.status(500).json({ error: 'Could not disable browser notifications.' });
