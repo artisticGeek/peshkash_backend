@@ -1153,19 +1153,21 @@ export const AdminService = {
     return { ok: true };
   },
 
-  listPrintCollections: (eventId?: number, actor?: StudioActor) =>
+  listPrintCollections: (eventId?: number, requestedVendorId?: number, actor?: StudioActor) =>
     PrintCollection.findAll({
       where: {
         ...(eventId && Number.isFinite(eventId) ? { eventId } : {}),
-        ...(actor?.role === 'vendor' ? { vendorId: Number(actor.vendorId) } : {}),
+        ...(actor?.role === 'vendor'
+          ? { vendorId: Number(actor.vendorId) }
+          : requestedVendorId && Number.isFinite(requestedVendorId) ? { vendorId: requestedVendorId } : {}),
       },
       order: [['updatedAt', 'DESC']],
     }),
 
   createPrintCollection: (body: any, actor?: StudioActor) => {
     const name = requireText(body?.name, 'Collection name').slice(0, 120);
-    const eventId = Number(body?.eventId);
-    if (!Number.isFinite(eventId) || eventId <= 0) throw badRequest('A valid event is required');
+    const requestedEventId = Number(body?.eventId);
+    const eventId = Number.isFinite(requestedEventId) && requestedEventId > 0 ? requestedEventId : null;
     const configuration = body?.configuration;
     if (!configuration || typeof configuration !== 'object' || Array.isArray(configuration)) {
       throw badRequest('Print collection configuration is required');

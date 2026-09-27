@@ -112,7 +112,11 @@ export const AdminController = {
     handle(res, AdminService.deleteQrTemplate(Number(req.params.id), studioActor(req))),
 
   listPrintCollections: (req: Request, res: Response) =>
-    handle(res, AdminService.listPrintCollections(req.query.eventId ? Number(req.query.eventId) : undefined, studioActor(req))),
+    handle(res, AdminService.listPrintCollections(
+      req.query.eventId ? Number(req.query.eventId) : undefined,
+      req.query.vendorId ? Number(req.query.vendorId) : undefined,
+      studioActor(req),
+    )),
   createPrintCollection: (req: Request, res: Response) =>
     handle(res, AdminService.createPrintCollection(req.body, studioActor(req)), 201),
   updatePrintCollection: (req: Request, res: Response) =>
