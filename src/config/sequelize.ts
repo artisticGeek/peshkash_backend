@@ -9,6 +9,7 @@ import { QrLinkMapping } from '../models/qrLinkMapping.model';
 import { QrTemplate } from '../models/qrTemplate.model';
 import { VendorPricingConfig } from '../models/vendorPricingConfig.model';
 import { AnalyticsEvent } from '../models/analyticsEvent.model';
+import { PrintCollection } from '../models/printCollection.model';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ export const sequelize = new Sequelize(databaseUrl, {
     QrTemplate,
     VendorPricingConfig,
     AnalyticsEvent,
+    PrintCollection,
   ],
   logging: false,
 });

@@ -6,6 +6,7 @@ import { LineItem } from '../models/lineItem.model';
 import { Menu } from '../models/menu.model';
 import { QrLinkMapping } from '../models/qrLinkMapping.model';
 import { QrTemplate } from '../models/qrTemplate.model';
+import { PrintCollection } from '../models/printCollection.model';
 import { Vendor } from '../models/vendor.model';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -1149,6 +1150,61 @@ export const AdminService = {
     if (!tpl) throw notFound('Template not found');
     assertTemplateWritable(tpl, actor);
     await tpl.destroy();
+    return { ok: true };
+  },
+
+  listPrintCollections: (eventId?: number, actor?: StudioActor) =>
+    PrintCollection.findAll({
+      where: {
+        ...(eventId && Number.isFinite(eventId) ? { eventId } : {}),
+        ...(actor?.role === 'vendor' ? { vendorId: Number(actor.vendorId) } : {}),
+      },
+      order: [['updatedAt', 'DESC']],
+    }),
+
+  createPrintCollection: (body: any, actor?: StudioActor) => {
+    const name = requireText(body?.name, 'Collection name').slice(0, 120);
+    const eventId = Number(body?.eventId);
+    if (!Number.isFinite(eventId) || eventId <= 0) throw badRequest('A valid event is required');
+    const configuration = body?.configuration;
+    if (!configuration || typeof configuration !== 'object' || Array.isArray(configuration)) {
+      throw badRequest('Print collection configuration is required');
+    }
+    if (!Array.isArray(configuration.orderedTargetKeys) || !configuration.orderedTargetKeys.length) {
+      throw badRequest('A print collection must contain at least one QR artwork');
+    }
+    return PrintCollection.create({
+      name,
+      eventId,
+      vendorId: actorVendorId(actor, body.vendorId),
+      configuration,
+    } as any);
+  },
+
+  updatePrintCollection: async (id: number, body: any, actor?: StudioActor) => {
+    const collection = await PrintCollection.findByPk(id);
+    if (!collection) throw notFound('Print collection not found');
+    if (actor?.role === 'vendor' && Number(collection.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This print collection belongs to another workspace');
+    }
+    const configuration = body?.configuration;
+    if (configuration !== undefined && (!configuration || typeof configuration !== 'object' || Array.isArray(configuration))) {
+      throw badRequest('Print collection configuration must be an object');
+    }
+    await collection.update({
+      ...(body?.name !== undefined ? { name: requireText(body.name, 'Collection name').slice(0, 120) } : {}),
+      ...(configuration !== undefined ? { configuration } : {}),
+    });
+    return collection;
+  },
+
+  deletePrintCollection: async (id: number, actor?: StudioActor) => {
+    const collection = await PrintCollection.findByPk(id);
+    if (!collection) throw notFound('Print collection not found');
+    if (actor?.role === 'vendor' && Number(collection.vendorId) !== Number(actor.vendorId)) {
+      throw forbidden('This print collection belongs to another workspace');
+    }
+    await collection.destroy();
     return { ok: true };
   },
 
