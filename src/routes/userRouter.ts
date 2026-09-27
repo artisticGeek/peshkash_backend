@@ -12,6 +12,7 @@ userRouter.post('/bookmarks/import', signedIn, UserHistoryController.importLocal
 userRouter.get('/communication-preferences', signedIn, UserHistoryController.getCommunicationPreferences);
 userRouter.put('/communication-preferences/:vendorId', signedIn, UserHistoryController.updateCommunicationPreference);
 userRouter.get('/communication-settings', signedIn, UserHistoryController.getCommunicationSettings);
+userRouter.get('/updates', signedIn, UserHistoryController.getUpdates);
 userRouter.put('/communication-settings/:channel', signedIn, UserHistoryController.updateCommunicationSettings);
 userRouter.get('/push/config', signedIn, UserHistoryController.getPushConfig);
 userRouter.post('/push/subscriptions', signedIn, UserHistoryController.subscribeToPush);

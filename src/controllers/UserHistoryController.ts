@@ -359,6 +359,42 @@ export const UserHistoryController = {
     }
   },
 
+  getUpdates: async (req: Request, res: Response) => {
+    try {
+      const rows = await sequelize.query<{
+        id: string; title: string; message: string; channel: string; destination_path: string;
+        vendor_name: string; occurred_at: string;
+      }>(
+        `SELECT sent.id, sent.title, sent.message, sent.channel, sent.destination_path,
+                sent.vendor_name, sent.occurred_at
+           FROM (
+             SELECT DISTINCT ON (campaign.id)
+                    campaign.id, campaign.title, campaign.message, campaign.channel,
+                    campaign.destination_path, COALESCE(vendor.display_name, vendor.name) AS vendor_name,
+                    delivery.attempted_at AS occurred_at
+               FROM engagement_delivery delivery
+               JOIN engagement_campaign campaign ON campaign.id = delivery.campaign_id
+               JOIN vendor ON vendor.id = campaign.vendor_id
+              WHERE delivery.phone = :phone AND delivery.status = 'sent'
+              ORDER BY campaign.id, delivery.attempted_at DESC
+           ) sent
+          ORDER BY sent.occurred_at DESC
+          LIMIT 100`,
+        { replacements: { phone: req.user!.phone }, type: QueryTypes.SELECT },
+      );
+      return res.json({
+        updates: rows.map(row => ({
+          id: Number(row.id), title: row.title, message: row.message, channel: row.channel,
+          destinationPath: row.destination_path || '/home/history', vendorName: row.vendor_name,
+          occurredAt: row.occurred_at,
+        })),
+      });
+    } catch (error) {
+      console.error('[UserHistory] updates error:', error);
+      return res.status(500).json({ error: 'Updates are temporarily unavailable.' });
+    }
+  },
+
   updateCommunicationSettings: async (req: Request, res: Response) => {
     const channel = String(req.params.channel || '').toLowerCase();
     const enabled = req.body?.enabled;

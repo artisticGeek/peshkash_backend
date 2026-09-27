@@ -6,6 +6,7 @@ export type CampaignMessage = {
   message: string;
   templateKey: string | null;
   vendorName: string;
+  destinationPath: string;
 };
 
 export type DeliveryResult = { ok: boolean; providerMessageId?: string; error?: string; subscriptionExpired?: boolean };
@@ -90,7 +91,7 @@ export async function sendPush(subscription: PushSubscription, campaign: Campaig
       body: campaign.message,
       icon: '/android-chrome-192x192.png',
       badge: '/favicon-32x32.png',
-      url: '/home/history',
+      url: campaign.destinationPath,
       tag: `peshkash-campaign-${campaign.id}`,
     }), { TTL: 86_400, urgency: 'normal' });
     return { ok: true };
