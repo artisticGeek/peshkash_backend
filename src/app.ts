@@ -294,7 +294,12 @@ export async function runMigrations(): Promise<void> {
       template_key     VARCHAR(100),
       status           VARCHAR(20) NOT NULL DEFAULT 'draft',
       audience_filter  JSONB NOT NULL DEFAULT '{}'::jsonb,
+      audience_label   VARCHAR(200) NOT NULL DEFAULT 'All eligible subscribers',
+      audience_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+      destination_path TEXT NOT NULL DEFAULT '/home/history',
       recipient_count  INTEGER NOT NULL DEFAULT 0,
+      send_count       INTEGER NOT NULL DEFAULT 0,
+      last_sent_at     TIMESTAMPTZ,
       created_by       VARCHAR(20) NOT NULL,
       scheduled_at     TIMESTAMPTZ,
       sent_at          TIMESTAMPTZ,
@@ -302,6 +307,11 @@ export async function runMigrations(): Promise<void> {
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_campaign ADD COLUMN IF NOT EXISTS audience_label VARCHAR(200) NOT NULL DEFAULT 'All eligible subscribers'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_campaign ADD COLUMN IF NOT EXISTS audience_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_campaign ADD COLUMN IF NOT EXISTS destination_path TEXT NOT NULL DEFAULT '/home/history'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_campaign ADD COLUMN IF NOT EXISTS send_count INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await sequelize.query(`ALTER TABLE engagement_campaign ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMPTZ`).catch(() => {});
   await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_engagement_campaign_vendor ON engagement_campaign(vendor_id, created_at DESC)`).catch(() => {});
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS push_subscription (
