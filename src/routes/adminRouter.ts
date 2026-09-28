@@ -59,6 +59,11 @@ router.post('/designs/:id/duplicate', requireSection('qr-templates'), AdminContr
 router.post('/designs/:id/validate', requireSection('qr-templates'), AdminController.validateQrTemplate);
 router.delete('/designs/:id', requireSection('qr-templates'), AdminController.deleteQrTemplate);
 
+router.get('/print-collections', requireSection('qr'), AdminController.listPrintCollections);
+router.post('/print-collections', requireSection('qr'), AdminController.createPrintCollection);
+router.put('/print-collections/:id', requireSection('qr'), AdminController.updatePrintCollection);
+router.delete('/print-collections/:id', requireSection('qr'), AdminController.deletePrintCollection);
+
 // Cross-cutting helper endpoints for content the caller already has edit access to —
 // not gated as their own section.
 router.get('/previews', AdminController.getPreviews);
