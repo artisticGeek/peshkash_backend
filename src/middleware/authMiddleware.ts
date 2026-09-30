@@ -106,3 +106,35 @@ export function requireSection(section: string) {
     next();
   };
 }
+
+/**
+ * Locks vendor analytics requests to the vendor identity in the verified JWT.
+ * Client-supplied vendor, event, and item identifiers are never trusted.
+ */
+export async function enforceVendorAnalyticsScope(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (req.user?.role !== 'vendor' || req.method !== 'GET') { next(); return; }
+  const vendorId = Number(req.user.vendorId);
+  if (!Number.isFinite(vendorId) || vendorId <= 0) {
+    res.status(403).json({ error: 'Vendor workspace is missing from this session.' }); return;
+  }
+  const eventId = Number(req.params.eventId || req.query.eventId || 0);
+  const itemId = Number(req.params.itemId || req.query.itemId || 0);
+  try {
+    if (eventId > 0) {
+      const rows = await sequelize.query(
+        'SELECT 1 FROM event WHERE id = :eventId AND vendor_id = :vendorId LIMIT 1',
+        { replacements: { eventId, vendorId }, type: QueryTypes.SELECT },
+      );
+      if (!rows.length) { res.status(403).json({ error: 'This event belongs to another vendor workspace.' }); return; }
+    }
+    if (itemId > 0) {
+      const rows = await sequelize.query(
+        `SELECT 1 FROM line_item item JOIN menu ON menu.id = item.menu_id
+          WHERE item.id = :itemId AND menu.vendor_id = :vendorId LIMIT 1`,
+        { replacements: { itemId, vendorId }, type: QueryTypes.SELECT },
+      );
+      if (!rows.length) { res.status(403).json({ error: 'This item belongs to another vendor workspace.' }); return; }
+    }
+    next();
+  } catch (error) { next(error); }
+}

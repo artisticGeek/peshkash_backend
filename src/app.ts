@@ -183,6 +183,23 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE qr_templates ADD COLUMN IF NOT EXISTS vendor_id BIGINT REFERENCES vendor(id) ON DELETE SET NULL`).catch(() => {});
   await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_qr_templates_vendor_id ON qr_templates(vendor_id)`).catch(() => {});
 
+  // Print collections and read-only phone shares for print-shop collaborators.
+  await sequelize.query(`ALTER TABLE print_collections ADD COLUMN IF NOT EXISTS notes TEXT`).catch(() => {});
+  await sequelize.query(`ALTER TABLE print_collections ADD COLUMN IF NOT EXISTS remarks TEXT`).catch(() => {});
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS print_collection_share (
+      id            BIGSERIAL PRIMARY KEY,
+      collection_id BIGINT NOT NULL REFERENCES print_collections(id) ON DELETE CASCADE,
+      phone         VARCHAR(20) NOT NULL,
+      token         UUID NOT NULL UNIQUE,
+      artworks      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_by    VARCHAR(20) NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(collection_id, phone)
+    )
+  `).catch(() => {});
+  await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_print_collection_share_phone ON print_collection_share(phone)`).catch(() => {});
+
   // admin_user table — source of truth for who is an admin
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS admin_user (

@@ -21,6 +21,12 @@ export class PrintCollection extends Model<PrintCollection> {
   @Column({ type: DataType.JSONB, allowNull: false, defaultValue: {} })
   configuration!: Record<string, unknown>;
 
+  @Column({ type: DataType.TEXT, allowNull: true })
+  notes!: string | null;
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  remarks!: string | null;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

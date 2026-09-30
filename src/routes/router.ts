@@ -6,10 +6,12 @@ import { SharePreviewController } from '../controllers/SharePreviewController';
 import { SocialPreviewImageController } from '../controllers/SocialPreviewImageController';
 import { InstagramAvatarController } from '../controllers/InstagramAvatarController';
 import { PublicConfigController } from '../controllers/PublicConfigController';
+import { PrintCollectionShareController } from '../controllers/PrintCollectionShareController';
 
 const router = Router();
 
 router.get('/public-config', PublicConfigController.get);
+router.get('/print-collections/shared/:token', requireRole('customer', 'vendor', 'admin'), PrintCollectionShareController.get);
 
 router.get('/event/:eventName', EventExperienceController.getPublicEvent);
 router.post('/event/:eventName/register', requireRole('customer', 'vendor', 'admin'), EventExperienceController.register);

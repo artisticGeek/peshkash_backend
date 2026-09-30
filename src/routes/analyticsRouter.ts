@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { AnalyticsController } from '../controllers/AnalyticsController';
-import { requireRole, requireSection } from '../middleware/authMiddleware';
+import { enforceVendorAnalyticsScope, requireRole, requireSection } from '../middleware/authMiddleware';
 
 const analyticsRouter = Router();
+analyticsRouter.use(enforceVendorAnalyticsScope);
 
 // Read endpoints — require a verified admin or vendor session, admin additionally
 // needs the 'insights' section grant (vendor bypasses — scoped by vendorId instead)
