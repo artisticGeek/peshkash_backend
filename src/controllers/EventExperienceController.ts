@@ -30,7 +30,8 @@ export const EventExperienceController = {
       const event = await findEvent(req.params.eventName);
       const config = (event?.experienceConfig ?? {}) as Record<string, any>;
       if (!event || !config.enabled) return res.status(404).json({ error: 'Event page not found' });
-      const canPreview = req.user?.role === 'admin' || (req.user?.role === 'vendor' && Number(req.user.vendorId) === Number(event.vendorId));
+      const vendorIds = req.user?.vendorIds ?? (req.user?.vendorId ? [Number(req.user.vendorId)] : []);
+      const canPreview = req.user?.role === 'admin' || (req.user?.role === 'vendor' && vendorIds.includes(Number(event.vendorId)));
       if (event.status !== 'active' && !canPreview) return res.status(404).json({ error: 'Event page not found' });
       const hasEnded = Boolean(event.endTime && Date.now() > new Date(event.endTime).getTime());
       const preview = event.status !== 'active';

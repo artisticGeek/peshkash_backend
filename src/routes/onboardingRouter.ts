@@ -17,7 +17,8 @@ router.use(requireRole('admin', 'vendor'));
 router.use(async (req, res, next) => {
   if (req.user!.role === 'admin') { next(); return; }
   const vendor = await OnboardingRepo.getVendorByName(req.params.vendorName);
-  if (!vendor || Number(vendor.id) !== Number(req.user!.vendorId)) {
+  const vendorIds = req.user!.vendorIds ?? (req.user!.vendorId ? [Number(req.user!.vendorId)] : []);
+  if (!vendor || !vendorIds.includes(Number(vendor.id))) {
     res.status(403).json({ message: 'Insufficient permissions.' });
     return;
   }

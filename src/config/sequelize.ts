@@ -20,6 +20,10 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required (or run npm run dev:
 
 export const sequelize = new Sequelize(databaseUrl, {
   dialect: 'postgres',
+  // The hosted session-mode pool is limited to 15 clients across all app
+  // instances and admin tools. Keep this process deliberately small so one
+  // analytics request cannot exhaust the shared connection allowance.
+  pool: { max: 2, min: 0, idle: 5_000, acquire: 30_000 },
   dialectOptions: {
     family: 4, // Ensure IPv4 preference
   },

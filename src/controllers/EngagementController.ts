@@ -207,8 +207,10 @@ function snapshotCandidates(candidates: Awaited<ReturnType<typeof loadAudienceCa
 }
 
 function vendorIdFor(req: Request): number | null {
-  if (req.user?.role === 'vendor') return req.user.vendorId ?? null;
   const value = Number(req.method === 'GET' ? req.query.vendorId : req.body?.vendorId);
+  if (req.user?.role === 'vendor') {
+    return Number.isFinite(value) && value > 0 ? value : req.user.vendorId ?? null;
+  }
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 

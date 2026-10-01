@@ -9,19 +9,23 @@ const router = Router();
 // (sub-routes below add their own stricter requireRole('admin')/requireSection(...) guards)
 router.use(requireRole('admin', 'vendor'));
 
-router.get('/vendors', requireSection('vendors'), AdminController.listVendors);
+// Every dashboard user needs their scoped workspace list for the home selector.
+router.get('/vendors', AdminController.listVendors);
 router.post('/vendors', requireSection('vendors'), AdminController.createVendor);
 router.put('/vendors/:vendorId', requireSection('vendors'), AdminController.updateVendor);
 router.delete('/vendors/:vendorId', requireSection('vendors'), AdminController.deleteVendor);
 
-router.get('/events', requireSection('events'), AdminController.listEvents);
+// Analytics needs the vendor-scoped event catalogue for its read-only drill-down.
+// Keep event mutations behind the Events grant, while allowing Insights users to
+// read the same scoped list without implicitly granting event-management access.
+router.get('/events', requireSection('events', 'insights'), AdminController.listEvents);
 router.post('/events', requireSection('events'), AdminController.createEvent);
 router.put('/events/:eventId', requireSection('events'), AdminController.updateEvent);
 router.patch('/events/:eventId/experience', requireSection('events'), AdminController.updateEventExperience);
 router.delete('/events/:eventId', requireSection('events'), AdminController.deleteEvent);
 router.patch('/events/:eventId/status', requireSection('events'), AdminController.setEventStatus);
 router.get('/events/:eventId/menus', requireSection('events'), AdminController.listEventMenus);
-router.get('/events/:eventId/registrations', requireSection('events'), AdminController.listEventRegistrations);
+router.get('/events/:eventId/registrations', requireSection('events', 'insights'), AdminController.listEventRegistrations);
 router.post('/events/:eventId/menus/:menuId', requireSection('events'), AdminController.linkMenuToEvent);
 router.delete('/events/:eventId/menus/:menuId', requireSection('events'), AdminController.unlinkMenuFromEvent);
 
@@ -66,9 +70,9 @@ router.delete('/print-collections/:id', requireSection('qr'), AdminController.de
 
 // Cross-cutting helper endpoints for content the caller already has edit access to —
 // not gated as their own section.
-router.get('/previews', AdminController.getPreviews);
-router.get('/preview/menu', AdminController.buildMenuPath);
-router.get('/preview/item', AdminController.buildItemPath);
+router.get('/previews', requireSection('designer', 'qr'), AdminController.getPreviews);
+router.get('/preview/menu', requireSection('designer', 'qr', 'events'), AdminController.buildMenuPath);
+router.get('/preview/item', requireSection('designer', 'qr', 'events'), AdminController.buildItemPath);
 
 // Admin user management + section grants — bundled under the 'sessions' (security) section
 router.get('/admin-users',           requireRole('admin'), requireSection('sessions'), AuthController.listAdminUsers);

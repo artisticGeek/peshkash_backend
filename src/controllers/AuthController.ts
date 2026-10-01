@@ -67,6 +67,7 @@ export const AuthController = {
         token,
         role:          payload.role,
         vendorId:      payload.vendorId ?? null,
+        vendorIds:     payload.vendorIds ?? [],
         phone:         payload.phone,
         sectionGrants: payload.sectionGrants ?? [],
       });
@@ -78,17 +79,17 @@ export const AuthController = {
 
   /**
    * GET /api/auth/me
-   * Returns current identity from Bearer token without hitting DB.
+   * Returns identity after authMiddleware refreshes mutable access from the DB.
    */
   me: async (req: Request, res: Response) => {
-    const header = req.headers.authorization ?? '';
-    const token  = header.startsWith('Bearer ') ? header.slice(7) : '';
-    if (!token) return res.status(401).json({ error: 'No token.' });
-
-    const payload = AuthService.verifyToken(token);
-    if (!payload) return res.status(401).json({ error: 'Token invalid or expired.' });
-
-    return res.json(payload);
+    if (!req.user) return res.status(401).json({ error: 'Token invalid or expired.' });
+    return res.json({
+      phone: req.user.phone,
+      role: req.user.role,
+      vendorId: req.user.vendorId ?? null,
+      vendorIds: req.user.vendorIds ?? [],
+      sectionGrants: req.user.sectionGrants ?? [],
+    });
   },
 
   // ── Admin user management ──────────────────────────────────────────────────
@@ -99,8 +100,20 @@ export const AuthController = {
    */
   listAdminUsers: async (_req: Request, res: Response) => {
     try {
-      const rows = await sequelize.query<{ phone: string; created_at: string }>(
-        'SELECT phone, created_at FROM admin_user ORDER BY created_at',
+      const rows = await sequelize.query<{ phone: string; created_at: string; role: 'admin' | 'vendor'; vendors: string | null }>(
+        `SELECT phone,
+                MIN(created_at) AS created_at,
+                CASE WHEN BOOL_OR(kind = 'admin') THEN 'admin' ELSE 'vendor' END AS role,
+                STRING_AGG(DISTINCT vendor_name, ', ') FILTER (WHERE vendor_name IS NOT NULL) AS vendors
+           FROM (
+             SELECT phone, created_at, 'admin' AS kind, NULL::text AS vendor_name FROM admin_user
+             UNION ALL
+             SELECT phone, created_at, 'vendor' AS kind, display_name AS vendor_name
+               FROM vendor
+              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
+           ) dashboard_users
+          GROUP BY phone
+          ORDER BY MIN(created_at)`,
         { type: QueryTypes.SELECT }
       );
       return res.json(rows);
@@ -207,5 +220,5 @@ export const AuthController = {
 };
 
 const GRANTABLE_SECTIONS = new Set([
-  'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'engagement', 'sessions',
+  'home', 'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'engagement', 'sessions',
 ]);
