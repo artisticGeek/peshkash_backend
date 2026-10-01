@@ -124,6 +124,8 @@ export const AdminController = {
     handle(res, AdminService.updatePrintCollection(Number(req.params.id), req.body, studioActor(req))),
   deletePrintCollection: (req: Request, res: Response) =>
     handle(res, AdminService.deletePrintCollection(Number(req.params.id), studioActor(req))),
+  sharePrintCollection: (req: Request, res: Response) =>
+    handle(res, AdminService.sharePrintCollection(Number(req.params.id), req.body, studioActor(req)), 201),
 
   deleteVendor: (req: Request, res: Response) =>
     handle(res, AdminService.deleteVendor(Number(req.params.vendorId), studioActor(req))),

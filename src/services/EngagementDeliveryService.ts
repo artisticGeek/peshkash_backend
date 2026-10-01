@@ -93,7 +93,11 @@ export async function sendPush(subscription: PushSubscription, campaign: Campaig
       badge: '/favicon-32x32.png',
       url: campaign.destinationPath,
       tag: `peshkash-campaign-${campaign.id}`,
-    }), { TTL: 86_400, urgency: 'normal' });
+    // Normal-priority Web Push can be deferred while the browser/PWA is idle,
+    // which makes a campaign appear only after the app is opened again.
+    // These notifications are explicitly sent by an admin, so ask the push
+    // service for prompt background delivery while retaining a one-day TTL.
+    }), { TTL: 86_400, urgency: 'high' });
     return { ok: true };
   } catch (error: any) {
     const statusCode = Number(error?.statusCode || 0);
