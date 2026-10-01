@@ -15,10 +15,10 @@ router.post('/vendors', requireSection('vendors'), AdminController.createVendor)
 router.put('/vendors/:vendorId', requireSection('vendors'), AdminController.updateVendor);
 router.delete('/vendors/:vendorId', requireSection('vendors'), AdminController.deleteVendor);
 
-// Analytics needs the vendor-scoped event catalogue for its read-only drill-down.
-// Keep event mutations behind the Events grant, while allowing Insights users to
-// read the same scoped list without implicitly granting event-management access.
-router.get('/events', requireSection('events', 'insights'), AdminController.listEvents);
+// Home and Analytics need vendor-scoped, read-only catalogues for their summaries.
+// Mutations and object-specific routes stay behind their management grants; these
+// collection services still scope every vendor user by the live req.user.vendorIds.
+router.get('/events', requireSection('home', 'events', 'insights'), AdminController.listEvents);
 router.post('/events', requireSection('events'), AdminController.createEvent);
 router.put('/events/:eventId', requireSection('events'), AdminController.updateEvent);
 router.patch('/events/:eventId/experience', requireSection('events'), AdminController.updateEventExperience);
@@ -29,7 +29,7 @@ router.get('/events/:eventId/registrations', requireSection('events', 'insights'
 router.post('/events/:eventId/menus/:menuId', requireSection('events'), AdminController.linkMenuToEvent);
 router.delete('/events/:eventId/menus/:menuId', requireSection('events'), AdminController.unlinkMenuFromEvent);
 
-router.get('/menus', requireSection('designer'), AdminController.listMenus);
+router.get('/menus', requireSection('home', 'designer'), AdminController.listMenus);
 router.post('/menus', requireSection('designer'), AdminController.createMenu);
 router.put('/menus/:menuId', requireSection('designer'), AdminController.updateMenu);
 router.delete('/menus/:menuId', requireSection('designer'), AdminController.deleteMenu);
@@ -37,12 +37,12 @@ router.post('/menus/:menuId/copy', requireSection('designer'), AdminController.c
 
 router.get('/vendors/:vendorId/item-pool', requireSection('designer'), AdminController.getItemPool);
 
-router.get('/items', requireSection('designer'), AdminController.listItems);
+router.get('/items', requireSection('home', 'designer'), AdminController.listItems);
 router.post('/items', requireSection('designer'), AdminController.createItem);
 router.put('/items/:itemId', requireSection('designer'), AdminController.updateItem);
 router.delete('/items/:itemId', requireSection('designer'), AdminController.deleteItem);
 
-router.get('/qr-mappings', requireSection('qr'), AdminController.listQrMappings);
+router.get('/qr-mappings', requireSection('home', 'qr'), AdminController.listQrMappings);
 router.post('/qr-mappings', requireSection('qr'), AdminController.upsertQrMapping);
 router.post('/qr-mappings/for-event/:eventId', requireSection('qr'), AdminController.getOrCreateEventQr);
 router.put('/qr-mappings/:id', requireSection('qr'), AdminController.updateQrMapping);
