@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { EngagementController } from '../controllers/EngagementController';
-import { requireRole, requireSection } from '../middleware/authMiddleware';
+import { requireRole, requireSection, requireVendorAccess } from '../middleware/authMiddleware';
 
 const engagementRouter = Router();
 engagementRouter.use(requireRole('admin', 'vendor'), requireSection('engagement'));
+engagementRouter.use(requireVendorAccess({ vendor: 'query' }));
 engagementRouter.get('/overview', EngagementController.overview);
 engagementRouter.get('/audience', EngagementController.audiencePreview);
 engagementRouter.get('/recipients', EngagementController.recipientDirectory);

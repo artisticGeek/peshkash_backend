@@ -7,7 +7,7 @@ import { pushConfigured, sendPush, sendWhatsApp, whatsappConfigured } from '../s
 type CampaignRow = {
   id: string; vendor_id: string; channel: string; title: string; message: string;
   template_key: string | null; status: string; recipient_count: number;
-  audience_filter?: AudienceFilter;
+  audience_filter?: AudienceFilter & { deliveryMode?: 'manual' };
   audience_label?: string; audience_snapshot?: AudienceSnapshot[]; destination_path?: string;
   send_count?: number; last_sent_at?: string | null;
   created_at: string; updated_at: string;
@@ -26,10 +26,23 @@ type AudienceSnapshot = {
   actions: string[]; events: string[]; collections: string[]; products: string[]; origin: string;
 };
 type NamedOptionRow = { id: string; name: string; slug?: string | null; event_slug?: string | null; menu_slug?: string | null };
+type CampaignChannel = 'whatsapp' | 'push' | 'manual';
 
 const AUDIENCE_MODES = new Set<AudienceMode>(['all', 'list', 'collection', 'event', 'product', 'source', 'custom']);
 const LIST_VALUES = new Set(['saved', 'liked', 'visited', 'disliked']);
 const SOURCE_VALUES = new Set(['qr', 'direct', 'social', 'shared']);
+
+function parseChannel(input: unknown): CampaignChannel {
+  return input === 'push' || input === 'manual' ? input : 'whatsapp';
+}
+
+function campaignChannel(row: Pick<CampaignRow, 'channel' | 'audience_filter'>): CampaignChannel {
+  return row.audience_filter?.deliveryMode === 'manual' ? 'manual' : parseChannel(row.channel);
+}
+
+function persistedAudienceFilter(filter: AudienceFilter, channel: CampaignChannel) {
+  return channel === 'manual' ? { ...filter, deliveryMode: 'manual' as const } : filter;
+}
 
 function parseAudienceFilter(input: any): AudienceFilter {
   const mode = AUDIENCE_MODES.has(input?.mode) ? input.mode as AudienceMode : 'all';
@@ -87,7 +100,7 @@ function audienceActivityClause(filter: AudienceFilter, replacements: Record<str
   return '';
 }
 
-async function loadAudienceCandidates(vendorId: number, channel: 'whatsapp' | 'push', filter: AudienceFilter) {
+async function loadAudienceCandidates(vendorId: number, channel: CampaignChannel, filter: AudienceFilter) {
   const replacements: Record<string, unknown> = { vendorId, channel };
   if (filter.mode === 'custom') {
     const selected = new Set(filter.recipientKeys);
@@ -101,6 +114,12 @@ async function loadAudienceCandidates(vendorId: number, channel: 'whatsapp' | 'p
             ))
          UNION
          SELECT ps.phone FROM push_subscription ps WHERE :channel = 'push' AND ps.active = true
+         UNION
+         SELECT DISTINCT COALESCE(dl.phone, ae.phone) AS phone
+           FROM analytics_event ae
+           LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+          WHERE :channel = 'manual' AND ae.vendor_id = :vendorId
+            AND COALESCE(dl.phone, ae.phone) IS NOT NULL
        )
        SELECT preference.phone, MAX(ae.created_at) AS last_interaction,
               COUNT(ae.id)::text AS activity_count,
@@ -131,6 +150,12 @@ async function loadAudienceCandidates(vendorId: number, channel: 'whatsapp' | 'p
           ))
        UNION
        SELECT ps.phone FROM push_subscription ps WHERE :channel = 'push' AND ps.active = true
+       UNION
+       SELECT DISTINCT COALESCE(dl.phone, ae.phone) AS phone
+         FROM analytics_event ae
+         LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+        WHERE :channel = 'manual' AND ae.vendor_id = :vendorId
+          AND COALESCE(dl.phone, ae.phone) IS NOT NULL
      )
      SELECT preference.phone, MAX(ae.created_at) AS last_interaction,
             COUNT(*)::text AS activity_count,
@@ -207,14 +232,16 @@ function snapshotCandidates(candidates: Awaited<ReturnType<typeof loadAudienceCa
 }
 
 function vendorIdFor(req: Request): number | null {
-  if (req.user?.role === 'vendor') return req.user.vendorId ?? null;
   const value = Number(req.method === 'GET' ? req.query.vendorId : req.body?.vendorId);
+  if (req.user?.role === 'vendor') {
+    return Number.isFinite(value) && value > 0 ? value : req.user.vendorId ?? null;
+  }
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function shapeCampaign(row: CampaignRow) {
   return {
-    id: Number(row.id), vendorId: Number(row.vendor_id), channel: row.channel,
+    id: Number(row.id), vendorId: Number(row.vendor_id), channel: campaignChannel(row),
     title: row.title, message: row.message, templateKey: row.template_key,
     status: row.status, recipientCount: Number(row.recipient_count || 0),
     audienceFilter: row.audience_filter || { mode: 'all', value: null, recipientKeys: [] },
@@ -300,7 +327,7 @@ export const EngagementController = {
 
   audiencePreview: async (req: Request, res: Response) => {
     const vendorId = vendorIdFor(req);
-    const channel = req.query.channel === 'push' ? 'push' : 'whatsapp';
+    const channel = parseChannel(req.query.channel);
     const filter = parseAudienceFilter({
       mode: req.query.mode,
       value: req.query.value,
@@ -396,7 +423,7 @@ export const EngagementController = {
 
   recipientDirectory: async (req: Request, res: Response) => {
     const vendorId = vendorIdFor(req);
-    const channel = req.query.channel === 'whatsapp' ? 'whatsapp' : 'push';
+    const channel = parseChannel(req.query.channel);
     if (!vendorId) return res.status(400).json({ error: 'Select a vendor first.' });
     try {
       const rows = await sequelize.query<AudienceCandidateRow>(
@@ -408,6 +435,12 @@ export const EngagementController = {
               ))
            UNION
            SELECT ps.phone FROM push_subscription ps WHERE :channel = 'push' AND ps.active = true
+           UNION
+           SELECT DISTINCT COALESCE(dl.phone, ae.phone) AS phone
+             FROM analytics_event ae
+             LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+            WHERE :channel = 'manual' AND ae.vendor_id = :vendorId
+              AND COALESCE(dl.phone, ae.phone) IS NOT NULL
          )
          SELECT preference.phone, MAX(ae.created_at) AS last_interaction,
                 COUNT(ae.id)::text AS activity_count,
@@ -443,7 +476,7 @@ export const EngagementController = {
 
   checkEligibleRecipient: async (req: Request, res: Response) => {
     const vendorId = vendorIdFor(req);
-    const channel = req.body?.channel === 'push' ? 'push' : 'whatsapp';
+    const channel = parseChannel(req.body?.channel);
     const phone = normalisePhone(req.body?.phone);
     if (!vendorId || !phone) return res.status(400).json({ error: 'Enter a valid phone number.' });
     try {
@@ -455,6 +488,12 @@ export const EngagementController = {
            UNION
            SELECT ps.phone FROM push_subscription ps
             WHERE :channel = 'push' AND ps.phone = :phone AND ps.active = true
+           UNION
+           SELECT DISTINCT COALESCE(dl.phone, ae.phone) AS phone
+             FROM analytics_event ae
+             LEFT JOIN device_link dl ON dl.device_id = ae.device_id
+            WHERE :channel = 'manual' AND ae.vendor_id = :vendorId
+              AND COALESCE(dl.phone, ae.phone) = :phone
          )
          SELECT preference.phone, MAX(ae.created_at) AS last_interaction, COUNT(ae.id)::text AS activity_count
            FROM eligible_phone preference
@@ -466,7 +505,11 @@ export const EngagementController = {
         { replacements: { vendorId, phone, channel }, type: QueryTypes.SELECT },
       );
       const recipient = rows[0];
-      if (!recipient) return res.status(404).json({ error: `This person has not opted in to ${channel === 'push' ? 'Peshkash notifications' : 'WhatsApp updates'}.` });
+      if (!recipient) return res.status(404).json({
+        error: channel === 'manual'
+          ? 'This person has not engaged with this vendor.'
+          : `This person has not opted in to ${channel === 'push' ? 'Peshkash notifications' : 'WhatsApp updates'}.`,
+      });
       return res.json({
         recipient: {
           key: audienceKey(recipient.phone), phone: recipient.phone, maskedPhone: maskedPhone(recipient.phone),
@@ -483,7 +526,7 @@ export const EngagementController = {
 
   createDraft: async (req: Request, res: Response) => {
     const vendorId = vendorIdFor(req);
-    const channel = req.body?.channel === 'push' ? 'push' : 'whatsapp';
+    const channel = parseChannel(req.body?.channel);
     const title = typeof req.body?.title === 'string' ? req.body.title.trim().slice(0, 120) : '';
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1200) : '';
     const templateKey = typeof req.body?.templateKey === 'string' ? req.body.templateKey.trim().slice(0, 100) : null;
@@ -511,8 +554,8 @@ export const EngagementController = {
                    send_count, last_sent_at, created_at, updated_at`,
         {
           replacements: {
-            vendorId, channel, title, message, templateKey,
-            audienceFilter: JSON.stringify(audienceFilter),
+            vendorId, channel: channel === 'manual' ? 'whatsapp' : channel, title, message, templateKey,
+            audienceFilter: JSON.stringify(persistedAudienceFilter(audienceFilter, channel)),
             audienceLabel,
             audienceSnapshot: JSON.stringify(audienceSnapshot),
             destinationPath,
@@ -532,7 +575,7 @@ export const EngagementController = {
   updateCampaign: async (req: Request, res: Response) => {
     const vendorId = vendorIdFor(req);
     const campaignId = Number(req.params.campaignId);
-    const channel = req.body?.channel === 'push' ? 'push' : 'whatsapp';
+    const channel = parseChannel(req.body?.channel);
     const title = typeof req.body?.title === 'string' ? req.body.title.trim().slice(0, 120) : '';
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1200) : '';
     const templateKey = typeof req.body?.templateKey === 'string' ? req.body.templateKey.trim().slice(0, 100) : null;
@@ -551,8 +594,8 @@ export const EngagementController = {
           WHERE id=:campaignId AND vendor_id=:vendorId AND status IN ('draft','failed')
           RETURNING id, vendor_id, channel, title, message, template_key, status, recipient_count,
                     audience_filter, audience_label, destination_path, send_count, last_sent_at, created_at, updated_at`,
-        { replacements: { campaignId, vendorId, channel, title, message, templateKey,
-            audienceFilter: JSON.stringify(audienceFilter), audienceLabel,
+        { replacements: { campaignId, vendorId, channel: channel === 'manual' ? 'whatsapp' : channel, title, message, templateKey,
+            audienceFilter: JSON.stringify(persistedAudienceFilter(audienceFilter, channel)), audienceLabel,
             audienceSnapshot: JSON.stringify(snapshotCandidates(candidates, audienceLabel)), destinationPath,
             recipientCount: candidates.length }, type: QueryTypes.SELECT },
       );
@@ -585,7 +628,7 @@ export const EngagementController = {
       if (!recipients.length) {
         const candidates = await loadAudienceCandidates(
           vendorId,
-          campaign.channel === 'push' ? 'push' : 'whatsapp',
+          campaignChannel(campaign),
           parseAudienceFilter(campaign.audience_filter),
         );
         recipients = snapshotCandidates(candidates, campaign.audience_label || 'Saved campaign audience');
@@ -648,13 +691,17 @@ export const EngagementController = {
       );
       const campaign = campaigns[0];
       if (!campaign) return res.status(404).json({ error: 'Campaign not found.' });
+      const effectiveChannel = campaignChannel(campaign);
       if (campaign.status === 'processing') {
         return res.status(409).json({ error: 'This campaign is already being processed.' });
       }
-      if (campaign.channel === 'whatsapp' && !whatsappConfigured()) {
+      if (effectiveChannel === 'manual') {
+        return res.status(400).json({ error: 'Manual campaigns are sent one recipient at a time from the campaign workspace.' });
+      }
+      if (effectiveChannel === 'whatsapp' && !whatsappConfigured()) {
         return res.status(503).json({ error: 'WhatsApp delivery is not configured yet.' });
       }
-      if (campaign.channel === 'push' && !pushConfigured()) {
+      if (effectiveChannel === 'push' && !pushConfigured()) {
         return res.status(503).json({ error: 'Push delivery is not configured yet.' });
       }
 
@@ -675,7 +722,7 @@ export const EngagementController = {
         : audienceFilter;
       const audienceCandidates = await loadAudienceCandidates(
         vendorId,
-        campaign.channel === 'push' ? 'push' : 'whatsapp',
+        effectiveChannel,
         sendFilter,
       );
       const audiencePhones = audienceCandidates.map(candidate => candidate.phone);

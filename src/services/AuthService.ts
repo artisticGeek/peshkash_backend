@@ -26,6 +26,7 @@ export interface AuthPayload {
   phone:     string;
   role:      Role;
   vendorId?: number | null;
+  vendorIds?: number[];
   // UI convenience only — which dashboard sections to render. NEVER the authorization
   // source: every admin route re-checks admin_section_grant live (see requireSection in
   // authMiddleware.ts), because a token can live up to a year and grants must be
@@ -50,13 +51,24 @@ export const AuthService = {
   async resolveRole(phone: string): Promise<AuthPayload> {
     const normalised = phone.replace(/\s/g, '');
 
-    // 1. Admin table
+    // 1. Admin table — admins are superusers: all vendors and all sections.
     try {
       const rows = await sequelize.query<{ phone: string }>(
         'SELECT phone FROM admin_user WHERE phone = :phone LIMIT 1',
         { replacements: { phone: normalised }, type: QueryTypes.SELECT }
       );
       if (rows.length > 0) {
+        return { phone: normalised, role: 'admin', vendorId: null, vendorIds: [], sectionGrants: ALL_SECTIONS };
+      }
+    } catch {
+      // Table might not exist yet on first boot — fall through
+    }
+
+    // 2. Vendor table. A phone may own more than one vendor workspace; the
+    // legacy vendorId claim remains as the default/first workspace.
+    try {
+      const vendors = await Vendor.findAll({ where: { phone: normalised }, attributes: ['id'], order: [['id', 'ASC']] });
+      if (vendors.length) {
         let sectionGrants: string[] = [];
         try {
           const grants = await sequelize.query<{ section: string }>(
@@ -65,19 +77,10 @@ export const AuthService = {
           );
           sectionGrants = grants.map((g) => g.section);
         } catch {
-          // Table might not exist yet on first boot — fall through with no grants
+          // Table might not exist yet on first boot — return no grants.
         }
-        return { phone: normalised, role: 'admin', vendorId: null, sectionGrants };
-      }
-    } catch {
-      // Table might not exist yet on first boot — fall through
-    }
-
-    // 2. Vendor table
-    try {
-      const vendor = await Vendor.findOne({ where: { phone: normalised } });
-      if (vendor) {
-        return { phone: normalised, role: 'vendor', vendorId: vendor.id };
+        const vendorIds = vendors.map((vendor) => Number(vendor.id));
+        return { phone: normalised, role: 'vendor', vendorId: vendorIds[0], vendorIds, sectionGrants };
       }
     } catch {
       // DB unavailable — fall through to customer
@@ -101,3 +104,7 @@ export const AuthService = {
     }
   },
 };
+
+export const ALL_SECTIONS = [
+  'home', 'vendors', 'events', 'designer', 'qr', 'qr-templates', 'resources', 'insights', 'engagement', 'sessions',
+];

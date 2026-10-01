@@ -179,7 +179,8 @@ export const AnalyticsController = {
 
       // Vendors can only export their own data; admins can export any
       const user = (req as any).user;
-      if (user?.role === 'vendor' && user.vendorId !== vendorId) {
+      const vendorIds = user?.vendorIds ?? (user?.vendorId ? [Number(user.vendorId)] : []);
+      if (user?.role === 'vendor' && !vendorIds.includes(vendorId)) {
         return res.status(403).json({ error: 'Forbidden' });
       }
 

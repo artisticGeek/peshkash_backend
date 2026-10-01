@@ -30,7 +30,7 @@ export class Vendor extends Model<Vendor> {
   @Column({ field: 'logo_url', type: DataType.TEXT, allowNull: true })
   logoUrl?: string;
 
-  @Column({ field: 'phone', type: DataType.STRING(20), allowNull: true, unique: true })
+  @Column({ field: 'phone', type: DataType.STRING(20), allowNull: true })
   phone?: string;
 
   @Column({ field: 'require_login', type: DataType.BOOLEAN, defaultValue: false })

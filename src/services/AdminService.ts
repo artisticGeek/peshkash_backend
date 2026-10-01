@@ -27,7 +27,7 @@ const APPROVED_QR_HOSTS = new Set(
     .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean),
 );
 
-type StudioActor = { role: string; vendorId?: number | null };
+export type StudioActor = { role: string; vendorId?: number | null; vendorIds?: number[] };
 
 type UrlContext = {
   origin: string;
@@ -100,12 +100,30 @@ function isKnownTemplateId(value: string): boolean {
 
 function actorVendorId(actor?: StudioActor, requested?: unknown): number | null {
   if (actor?.role === 'vendor') {
-    const id = Number(actor.vendorId);
-    if (!Number.isFinite(id) || id <= 0) throw forbidden('Vendor workspace is missing from this session');
+    const requestedId = Number(requested);
+    const ids = actorVendorIds(actor);
+    const id = Number.isFinite(requestedId) && requestedId > 0 ? requestedId : ids[0];
+    if (!id || !ids.includes(id)) throw forbidden('This vendor workspace is not associated with your phone');
     return id;
   }
   const id = Number(requested);
   return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function actorVendorIds(actor?: StudioActor): number[] {
+  if (actor?.role !== 'vendor') return [];
+  const source = actor.vendorIds?.length ? actor.vendorIds : [actor.vendorId];
+  return [...new Set(source.map(Number).filter((id) => Number.isFinite(id) && id > 0))];
+}
+
+function assertActorVendor(actor: StudioActor | undefined, vendorId: unknown): void {
+  if (actor?.role !== 'vendor') return;
+  const id = Number(vendorId);
+  if (!actorVendorIds(actor).includes(id)) throw forbidden('This vendor workspace is not associated with your phone');
+}
+
+function vendorWhere(actor?: StudioActor): Record<string, unknown> | undefined {
+  return actor?.role === 'vendor' ? { id: { [Op.in]: actorVendorIds(actor) } } : undefined;
 }
 
 function assertApprovedDestination(settings: unknown, document?: unknown): void {
@@ -128,7 +146,7 @@ function assertApprovedDestination(settings: unknown, document?: unknown): void 
 
 function assertTemplateWritable(template: QrTemplate, actor?: StudioActor): void {
   if (actor?.role !== 'vendor') return;
-  if (!template.vendorId || Number(template.vendorId) !== Number(actor.vendorId)) {
+  if (!template.vendorId || !actorVendorIds(actor).includes(Number(template.vendorId))) {
     throw forbidden('This design belongs to another workspace or is a protected library preset');
   }
 }
@@ -452,12 +470,13 @@ async function ensureVendorOwnsEvent(vendorId: number, eventId: number) {
 }
 
 export const AdminService = {
-  listVendors: async () => {
-    const vendors = await Vendor.findAll({ order: [['createdAt', 'DESC']] });
+  listVendors: async (actor?: StudioActor) => {
+    const vendors = await Vendor.findAll({ where: vendorWhere(actor), order: [['createdAt', 'DESC']] });
     return vendors.map(cleanVendor);
   },
 
-  createVendor: async (body: any) => {
+  createVendor: async (body: any, actor?: StudioActor) => {
+    if (actor?.role === 'vendor') throw forbidden('Only administrators can create vendor workspaces');
     const name = requireSlug(body.name, 'Vendor slug');
     const displayName = requireText(body.displayName, 'Vendor display name');
     const existing = await Vendor.findOne({ where: { name } });
@@ -477,7 +496,8 @@ export const AdminService = {
     return cleanVendor(vendor);
   },
 
-  updateVendor: async (id: number, body: any) => {
+  updateVendor: async (id: number, body: any, actor?: StudioActor) => {
+    assertActorVendor(actor, id);
     const vendor = await Vendor.findByPk(id);
     if (!vendor) throw notFound('Vendor not found');
     const oldName = vendor.name;
@@ -494,21 +514,25 @@ export const AdminService = {
       address: body.address?.trim() || null,
       hasContactPage: body.hasContactPage !== undefined ? Boolean(body.hasContactPage) : vendor.hasContactPage,
       logoUrl: body.logoUrl !== undefined ? (body.logoUrl?.trim() || null) : vendor.logoUrl,
-      phone: ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone) as string | undefined,
+      phone: (actor?.role === 'vendor'
+        ? vendor.phone
+        : ('loginPhone' in body ? normalizeLoginPhone(body.loginPhone) : vendor.phone)) as string | undefined,
       requireLogin: body.requireLogin !== undefined ? Boolean(body.requireLogin) : vendor.requireLogin,
     });
     await rewriteVendorQrDestination(id, oldName, name);
     return cleanVendor(vendor);
   },
 
-  listEvents: async () => {
-    const events = await Event.findAll({ attributes: await eventAttributes(), include: [Vendor], order: [['createdAt', 'DESC']] });
+  listEvents: async (actor?: StudioActor) => {
+    const where = actor?.role === 'vendor' ? { vendorId: { [Op.in]: actorVendorIds(actor) } } : undefined;
+    const events = await Event.findAll({ where, attributes: await eventAttributes(), include: [Vendor], order: [['createdAt', 'DESC']] });
     return events.map(cleanEvent);
   },
 
-  createEvent: async (body: any) => {
+  createEvent: async (body: any, actor?: StudioActor) => {
     const vendorId = Number(body.vendorId);
     if (!vendorId) throw badRequest('Vendor is required');
+    assertActorVendor(actor, vendorId);
     const vendor = await Vendor.findByPk(vendorId);
     if (!vendor) throw badRequest('Selected vendor does not exist');
     const name = requireSlug(body.name, 'Event slug');
@@ -533,12 +557,14 @@ export const AdminService = {
     return cleanEvent(event);
   },
 
-  updateEvent: async (id: number, body: any) => {
+  updateEvent: async (id: number, body: any, actor?: StudioActor) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const oldName = event.name;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : event.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
+    assertActorVendor(actor, vendorId);
     const name = body.name !== undefined ? requireSlug(body.name, 'Event slug') : event.name;
     const duplicate = await Event.findOne({ where: { vendorId, name, id: { [Op.ne]: id } }, attributes: ['id'] });
     if (duplicate) throw conflict('This vendor already has an event with this slug. Add the year, couple name, location, or a short suffix.');
@@ -564,9 +590,10 @@ export const AdminService = {
     return AdminService.getEvent(id);
   },
 
-  updateEventExperience: async (id: number, body: any) => {
+  updateEventExperience: async (id: number, body: any, actor?: StudioActor) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const experienceConfig = cleanEventExperience(body?.experienceConfig ?? body);
     await event.update({ experienceConfig } as any);
     await syncEventQrUrls(id, event.name);
@@ -579,14 +606,16 @@ export const AdminService = {
     return cleanEvent(event);
   },
 
-  listMenus: async () => {
-    const menus = await Menu.findAll({ include: [Vendor], order: [['createdAt', 'DESC']] });
+  listMenus: async (actor?: StudioActor) => {
+    const where = actor?.role === 'vendor' ? { vendorId: { [Op.in]: actorVendorIds(actor) } } : undefined;
+    const menus = await Menu.findAll({ where, include: [Vendor], order: [['createdAt', 'DESC']] });
     return menus.map(cleanMenu);
   },
 
-  createMenu: async (body: any) => {
+  createMenu: async (body: any, actor?: StudioActor) => {
     const vendorId = Number(body.vendorId);
     if (!vendorId) throw badRequest('Vendor is required');
+    assertActorVendor(actor, vendorId);
     const vendor = await Vendor.findByPk(vendorId);
     if (!vendor) throw badRequest('Selected vendor does not exist');
     const name = requireSlug(body.name, 'Menu slug');
@@ -608,13 +637,15 @@ export const AdminService = {
     return cleanMenu(menu);
   },
 
-  updateMenu: async (id: number, body: any) => {
+  updateMenu: async (id: number, body: any, actor?: StudioActor) => {
     const menu = await Menu.findByPk(id);
     if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
     const oldName = menu.name;
     const oldVendorId = menu.vendorId;
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : menu.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
+    assertActorVendor(actor, vendorId);
     const name = body.name !== undefined ? requireSlug(body.name, 'Menu slug') : menu.name;
     const duplicate = await Menu.findOne({ where: { vendorId, name, id: { [Op.ne]: id } } });
     if (duplicate) throw conflict('This vendor already has a menu with this slug. Use a unique menu slug such as adding event type or version.');
@@ -642,9 +673,10 @@ export const AdminService = {
     return cleanMenu(updated!);
   },
 
-  linkMenuToEvent: async (eventId: number, menuId: number, displayName?: string) => {
+  linkMenuToEvent: async (eventId: number, menuId: number, displayName?: string, actor?: StudioActor) => {
     const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const menu = await ensureVendorOwnsMenu(event.vendorId, menuId);
     const defaults: Record<string, unknown> = { eventId, menuId };
     if (await hasEventMenuDisplayNameColumn()) defaults.displayName = displayName?.trim() || menu.displayName;
@@ -657,18 +689,24 @@ export const AdminService = {
     }
     // Keep any assigned event QRs pointing to the current first menu
     await syncEventQrUrls(eventId, event.name);
-    return AdminService.listEventMenus(eventId);
+    return AdminService.listEventMenus(eventId, actor);
   },
 
-  unlinkMenuFromEvent: async (eventId: number, menuId: number) => {
+  unlinkMenuFromEvent: async (eventId: number, menuId: number, actor?: StudioActor) => {
+    const ownedEvent = await Event.findByPk(eventId, { attributes: ['vendorId'] });
+    if (!ownedEvent) throw notFound('Event not found');
+    assertActorVendor(actor, ownedEvent.vendorId);
     await EventMenuMapping.destroy({ where: { eventId, menuId } });
     // Re-sync so QR URL updates to next menu (or falls back to event page if none left)
     const event = await Event.findByPk(eventId, { attributes: ['id', 'name'] });
     if (event) await syncEventQrUrls(eventId, event.name);
-    return AdminService.listEventMenus(eventId);
+    return AdminService.listEventMenus(eventId, actor);
   },
 
-  listEventMenus: async (eventId: number) => {
+  listEventMenus: async (eventId: number, actor?: StudioActor) => {
+    const ownedEvent = await Event.findByPk(eventId, { attributes: ['vendorId'] });
+    if (!ownedEvent) throw notFound('Event not found');
+    assertActorVendor(actor, ownedEvent.vendorId);
     const mappings = await EventMenuMapping.findAll({
       where: { eventId },
       attributes: await eventMenuMappingAttributes(),
@@ -680,17 +718,21 @@ export const AdminService = {
     }));
   },
 
-  listItems: async (menuId?: number) => {
+  listItems: async (menuId?: number, actor?: StudioActor) => {
     const where = menuId ? { menuId } : {};
-    const items = await LineItem.findAll({ where, include: [Menu], order: [['menuId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']] });
+    const menuInclude = actor?.role === 'vendor'
+      ? [{ model: Menu, where: { vendorId: { [Op.in]: actorVendorIds(actor) } }, required: true }]
+      : [Menu];
+    const items = await LineItem.findAll({ where, include: menuInclude, order: [['menuId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']] });
     return items.map(cleanItem);
   },
 
-  createItem: async (body: any) => {
+  createItem: async (body: any, actor?: StudioActor) => {
     const menuId = Number(body.menuId);
     if (!menuId) throw badRequest('Menu is required');
     const menu = await Menu.findByPk(menuId);
     if (!menu) throw badRequest('Selected menu does not exist');
+    assertActorVendor(actor, menu.vendorId);
     const name = requireSlug(body.name, 'Item slug');
     const duplicate = await LineItem.findOne({ where: { menuId, name } });
     if (duplicate) throw conflict('This menu already has an item with this slug. Reuse the existing item as parent/category or choose a unique item slug.');
@@ -719,12 +761,13 @@ export const AdminService = {
     return cleanItem(item);
   },
 
-  updateItem: async (id: number, body: any) => {
+  updateItem: async (id: number, body: any, actor?: StudioActor) => {
     const item = await LineItem.findByPk(id);
     if (!item) throw notFound('Item not found');
     const oldName = item.name;
     const oldMenu = await Menu.findByPk(item.menuId);
     if (!oldMenu) throw badRequest('Current menu does not exist');
+    assertActorVendor(actor, oldMenu.vendorId);
     const menuId = body.menuId !== undefined ? Number(body.menuId) : item.menuId;
     const name = body.name !== undefined ? requireSlug(body.name, 'Item slug') : item.name;
     const duplicate = await LineItem.findOne({ where: { menuId, name, id: { [Op.ne]: id } } });
@@ -758,12 +801,16 @@ export const AdminService = {
     } as any);
     const newMenu = menuId === oldMenu.id ? oldMenu : await Menu.findByPk(menuId);
     if (!newMenu) throw badRequest('Selected menu does not exist');
+    assertActorVendor(actor, newMenu.vendorId);
     await rewriteItemQrDestinations(oldMenu.vendorId, newMenu.vendorId, oldMenu.name, newMenu.name, oldName, name);
     return cleanItem(item);
   },
 
-  listQrMappings: async (ctx: UrlContext, vendorId?: number) => {
-    const where = vendorId ? { vendorId } : {};
+  listQrMappings: async (ctx: UrlContext, vendorId?: number, actor?: StudioActor) => {
+    if (vendorId) assertActorVendor(actor, vendorId);
+    const where = vendorId
+      ? { vendorId }
+      : actor?.role === 'vendor' ? { vendorId: { [Op.in]: actorVendorIds(actor) } } : {};
     const mappings = await QrLinkMapping.findAll({ where: where as any, order: [['createdAt', 'DESC']] });
     if (!mappings.length) return [];
 
@@ -790,16 +837,19 @@ export const AdminService = {
     }));
   },
 
-  upsertQrMapping: async (body: any, ctx: UrlContext) => {
+  upsertQrMapping: async (body: any, ctx: UrlContext, actor?: StudioActor) => {
     const qrHash = requireSlug(body.qrHash, 'QR hash');
     const type = body.type === 'event' ? 'event' : 'static';
     let url: string | null = null;
+    let resolvedVendorId = Number(body.vendorId) || null;
     if (type === 'event') {
       // Auto-build the event-level URL from eventId so the pure redirect model still works
       const eventId = Number(body.eventId);
       if (!eventId) throw badRequest('Event is required for event-type QRs');
-      const event = await Event.findByPk(eventId, { attributes: ['name'] });
+      const event = await Event.findByPk(eventId, { attributes: ['name', 'vendorId'] });
       if (!event) throw badRequest('Event not found');
+      assertActorVendor(actor, event.vendorId);
+      resolvedVendorId = Number(event.vendorId);
       url = `/event/${event.name}`;
     } else {
       url = requireText(body.url, 'Destination URL');
@@ -808,6 +858,7 @@ export const AdminService = {
       }
     }
     const existing = await QrLinkMapping.findOne({ where: { qrHash } });
+    if (existing) assertActorVendor(actor, existing.getDataValue('vendorId'));
     const data: Record<string, unknown> = {
       qrHash,
       url,
@@ -817,23 +868,29 @@ export const AdminService = {
       updatedAt: new Date(),
     };
     if (body.eventId !== undefined) data.eventId = Number(body.eventId) || null;
-    if (body.vendorId !== undefined) data.vendorId = Number(body.vendorId) || null;
+    if (resolvedVendorId) {
+      assertActorVendor(actor, resolvedVendorId);
+      data.vendorId = resolvedVendorId;
+    }
+    if (actor?.role === 'vendor' && data.vendorId == null) data.vendorId = actorVendorId(actor);
     const mapping = existing
       ? await existing.update(data as any)
       : await QrLinkMapping.create({ ...data, usageCount: 0 } as any);
     return withUrls(mapping, ctx);
   },
 
-  updateQrMapping: async (id: number, body: any, ctx: UrlContext) => {
+  updateQrMapping: async (id: number, body: any, ctx: UrlContext, actor?: StudioActor) => {
     const mapping = await QrLinkMapping.findByPk(id);
     if (!mapping) throw notFound('QR mapping not found');
+    assertActorVendor(actor, mapping.getDataValue('vendorId'));
     const type = body.type !== undefined ? (body.type === 'event' ? 'event' : 'static') : (mapping.type || 'static');
     let url = mapping.url;
     if (body.url !== undefined) {
       if (type === 'event') {
         // Keep the url derived from eventId; if eventId changes, recompute
         if (body.eventId !== undefined) {
-          const event = await Event.findByPk(Number(body.eventId), { attributes: ['name'] });
+          const event = await Event.findByPk(Number(body.eventId), { attributes: ['name', 'vendorId'] });
+          if (event) assertActorVendor(actor, event.vendorId);
           url = event ? `/event/${event.name}` : mapping.url;
         }
       } else {
@@ -846,14 +903,18 @@ export const AdminService = {
     if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
     if (body.expiresAt !== undefined) data.expiresAt = optionalDate(body.expiresAt) ?? null;
     if (body.eventId !== undefined) data.eventId = Number(body.eventId) || null;
-    if (body.vendorId !== undefined) data.vendorId = Number(body.vendorId) || null;
+    if (body.vendorId !== undefined) {
+      assertActorVendor(actor, body.vendorId);
+      data.vendorId = Number(body.vendorId) || null;
+    }
     await mapping.update(data as any);
     return withUrls(mapping, ctx);
   },
 
-  getOrCreateEventQr: async (eventId: number, ctx: UrlContext) => {
+  getOrCreateEventQr: async (eventId: number, ctx: UrlContext, actor?: StudioActor) => {
     const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
 
     // Return existing event-dynamic QR if one exists
     const existing = await QrLinkMapping.findOne({ where: { eventId, type: 'event' } as any });
@@ -883,10 +944,11 @@ export const AdminService = {
     return withUrls(updated!, ctx);
   },
 
-  setEventStatus: async (id: number, status: string) => {
+  setEventStatus: async (id: number, status: string, actor?: StudioActor) => {
     if (!isStatus(status)) throw badRequest('Status must be draft, active, or inactive');
     const event = await Event.findByPk(id, { attributes: await eventAttributes(), include: [Vendor] });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     if (status === 'active') {
       if (!event.startTime || !event.endTime) throw badRequest('Add event start and end times before publishing');
       const standaloneReady = Boolean((event.experienceConfig as any)?.enabled);
@@ -907,7 +969,8 @@ export const AdminService = {
     return AdminService.getEvent(id);
   },
 
-  getItemPool: async (vendorId: number) => {
+  getItemPool: async (vendorId: number, actor?: StudioActor) => {
+    assertActorVendor(actor, vendorId);
     const menus = await Menu.findAll({
       where: { vendorId },
       attributes: ['id', 'name', 'displayName'],
@@ -927,11 +990,13 @@ export const AdminService = {
     }));
   },
 
-  copyMenu: async (sourceMenuId: number, body: any) => {
+  copyMenu: async (sourceMenuId: number, body: any, actor?: StudioActor) => {
     const source = await Menu.findByPk(sourceMenuId, { include: [{ model: LineItem }] });
     if (!source) throw notFound('Source menu not found');
+    assertActorVendor(actor, source.vendorId);
     const vendorId = Number(body.vendorId ?? source.vendorId);
     if (!vendorId) throw badRequest('Vendor is required');
+    assertActorVendor(actor, vendorId);
     const name = requireSlug(body.name, 'Menu slug');
     const duplicate = await Menu.findOne({ where: { vendorId, name } });
     if (duplicate) throw conflict('This vendor already has a menu with this slug.');
@@ -979,15 +1044,17 @@ export const AdminService = {
     return cleanMenu(result!);
   },
 
-  getPreviews: async (ctx: UrlContext) => {
+  getPreviews: async (ctx: UrlContext, actor?: StudioActor) => {
+    const scopedVendorIds = actor?.role === 'vendor' ? actorVendorIds(actor) : null;
+    const scopedVendorWhere = scopedVendorIds ? { vendorId: { [Op.in]: scopedVendorIds } } : undefined;
     const [events, menus, items] = await Promise.all([
-      Event.findAll({ attributes: await eventAttributes(), include: [Vendor] }),
-      Menu.findAll({ include: [Vendor] }),
-      LineItem.findAll(),
+      Event.findAll({ where: scopedVendorWhere, attributes: await eventAttributes(), include: [Vendor] }),
+      Menu.findAll({ where: scopedVendorWhere, include: [Vendor] }),
+      LineItem.findAll({ include: scopedVendorIds ? [{ model: Menu, where: scopedVendorWhere, required: true }] : undefined }),
     ]);
     const mappings = await EventMenuMapping.findAll({
       attributes: await eventMenuMappingAttributes(),
-      include: [{ model: Event, attributes: await eventAttributes() }, Menu],
+      include: [{ model: Event, attributes: await eventAttributes(), where: scopedVendorWhere, required: Boolean(scopedVendorIds) }, Menu],
     });
     return {
       events: events.map(cleanEvent),
@@ -1019,17 +1086,19 @@ export const AdminService = {
     };
   },
 
-  buildMenuPath: async (eventId: number, menuId: number, ctx: UrlContext) => {
+  buildMenuPath: async (eventId: number, menuId: number, ctx: UrlContext, actor?: StudioActor) => {
     const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const menu = await ensureVendorOwnsMenu(event.vendorId, menuId);
     const path = menuPath(event.name, menu.name);
     return { path, publicUrl: `${ctx.origin}${path}` };
   },
 
-  buildItemPath: async (eventId: number, itemId: number, ctx: UrlContext) => {
+  buildItemPath: async (eventId: number, itemId: number, ctx: UrlContext, actor?: StudioActor) => {
     const event = await Event.findByPk(eventId, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const item = await LineItem.findByPk(itemId);
     if (!item) throw notFound('Item not found');
     const menu = await ensureVendorOwnsMenu(event.vendorId, item.menuId);
@@ -1040,7 +1109,7 @@ export const AdminService = {
   listQrTemplates: (actor?: StudioActor) =>
     QrTemplate.findAll({
       where: actor?.role === 'vendor'
-        ? { [Op.or]: [{ vendorId: Number(actor.vendorId) }, { vendorId: null }] }
+        ? { [Op.or]: [{ vendorId: { [Op.in]: actorVendorIds(actor) } }, { vendorId: null }] }
         : undefined,
       order: [['updatedAt', 'DESC']],
     }),
@@ -1048,7 +1117,7 @@ export const AdminService = {
   getQrTemplate: async (id: number, actor?: StudioActor) => {
     const template = await QrTemplate.findByPk(id);
     if (!template) throw notFound('Design not found');
-    if (actor?.role === 'vendor' && template.vendorId !== null && Number(template.vendorId) !== Number(actor.vendorId)) {
+    if (actor?.role === 'vendor' && template.vendorId !== null && !actorVendorIds(actor).includes(Number(template.vendorId))) {
       throw forbidden('This design belongs to another workspace');
     }
     return template;
@@ -1113,7 +1182,7 @@ export const AdminService = {
   duplicateQrTemplate: async (id: number, body: any, actor?: StudioActor) => {
     const source = await QrTemplate.findByPk(id);
     if (!source) throw notFound('Design not found');
-    if (actor?.role === 'vendor' && source.vendorId !== null && Number(source.vendorId) !== Number(actor.vendorId)) {
+    if (actor?.role === 'vendor' && source.vendorId !== null && !actorVendorIds(actor).includes(Number(source.vendorId))) {
       throw forbidden('This design belongs to another workspace');
     }
     return QrTemplate.create({
@@ -1158,7 +1227,7 @@ export const AdminService = {
       where: {
         ...(eventId && Number.isFinite(eventId) ? { eventId } : {}),
         ...(actor?.role === 'vendor'
-          ? { vendorId: Number(actor.vendorId) }
+          ? { vendorId: { [Op.in]: actorVendorIds(actor) } }
           : requestedVendorId && Number.isFinite(requestedVendorId) ? { vendorId: requestedVendorId } : {}),
       },
       order: [['updatedAt', 'DESC']],
@@ -1186,7 +1255,7 @@ export const AdminService = {
   updatePrintCollection: async (id: number, body: any, actor?: StudioActor) => {
     const collection = await PrintCollection.findByPk(id);
     if (!collection) throw notFound('Print collection not found');
-    if (actor?.role === 'vendor' && Number(collection.vendorId) !== Number(actor.vendorId)) {
+    if (actor?.role === 'vendor' && !actorVendorIds(actor).includes(Number(collection.vendorId))) {
       throw forbidden('This print collection belongs to another workspace');
     }
     const configuration = body?.configuration;
@@ -1203,7 +1272,7 @@ export const AdminService = {
   deletePrintCollection: async (id: number, actor?: StudioActor) => {
     const collection = await PrintCollection.findByPk(id);
     if (!collection) throw notFound('Print collection not found');
-    if (actor?.role === 'vendor' && Number(collection.vendorId) !== Number(actor.vendorId)) {
+    if (actor?.role === 'vendor' && !actorVendorIds(actor).includes(Number(collection.vendorId))) {
       throw forbidden('This print collection belongs to another workspace');
     }
     await collection.destroy();
@@ -1212,7 +1281,8 @@ export const AdminService = {
 
   // ── DELETE operations ──────────────────────────────────────────────────────
 
-  deleteVendor: async (id: number) => {
+  deleteVendor: async (id: number, actor?: StudioActor) => {
+    if (actor?.role === 'vendor') throw forbidden('Only administrators can delete vendor workspaces');
     const vendor = await Vendor.findByPk(id);
     if (!vendor) throw notFound('Vendor not found');
     const eventCount = await Event.count({ where: { vendorId: id } });
@@ -1223,9 +1293,10 @@ export const AdminService = {
     return { ok: true };
   },
 
-  deleteEvent: async (id: number) => {
+  deleteEvent: async (id: number, actor?: StudioActor) => {
     const event = await Event.findByPk(id, { attributes: await eventAttributes() });
     if (!event) throw notFound('Event not found');
+    assertActorVendor(actor, event.vendorId);
     const status = event.getDataValue('status');
     if (status === 'active') throw badRequest('Cannot delete an active event. Deactivate it first.');
     // Cascade: remove event–menu links and associated QR mappings, then delete event
@@ -1235,9 +1306,10 @@ export const AdminService = {
     return { ok: true };
   },
 
-  deleteMenu: async (id: number) => {
+  deleteMenu: async (id: number, actor?: StudioActor) => {
     const menu = await Menu.findByPk(id);
     if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
     const linkCount = await EventMenuMapping.count({ where: { menuId: id } });
     if (linkCount > 0) throw badRequest(`Cannot delete: menu is linked to ${linkCount} event(s). Unlink it first.`);
     // Cascade: delete all items in this menu, then delete the menu
@@ -1246,18 +1318,22 @@ export const AdminService = {
     return { ok: true };
   },
 
-  deleteItem: async (id: number) => {
+  deleteItem: async (id: number, actor?: StudioActor) => {
     const item = await LineItem.findByPk(id);
     if (!item) throw notFound('Item not found');
+    const itemMenu = await Menu.findByPk(item.menuId, { attributes: ['vendorId'] });
+    if (!itemMenu) throw notFound('Menu not found');
+    assertActorVendor(actor, itemMenu.vendorId);
     // Orphan any children before deleting (null out their parentId)
     await LineItem.update({ parentId: null } as any, { where: { parentId: id } as any });
     await item.destroy();
     return { ok: true };
   },
 
-  deleteQrMapping: async (id: number) => {
+  deleteQrMapping: async (id: number, actor?: StudioActor) => {
     const mapping = await QrLinkMapping.findByPk(id);
     if (!mapping) throw notFound('QR mapping not found');
+    assertActorVendor(actor, mapping.getDataValue('vendorId'));
     await mapping.destroy();
     return { ok: true };
   },

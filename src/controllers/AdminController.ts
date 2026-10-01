@@ -8,7 +8,7 @@ function getOrigin(req: Request) {
 }
 
 function studioActor(req: Request) {
-  return { role: req.user?.role || 'customer', vendorId: req.user?.vendorId };
+  return { role: req.user?.role || 'customer', vendorId: req.user?.vendorId, vendorIds: req.user?.vendorIds };
 }
 
 function handle(res: Response, promise: Promise<any>, status = 200) {
@@ -21,30 +21,31 @@ function handle(res: Response, promise: Promise<any>, status = 200) {
 }
 
 export const AdminController = {
-  listVendors: (_req: Request, res: Response) => handle(res, AdminService.listVendors()),
-  createVendor: (req: Request, res: Response) => handle(res, AdminService.createVendor(req.body), 201),
+  listVendors: (req: Request, res: Response) => handle(res, AdminService.listVendors(studioActor(req))),
+  createVendor: (req: Request, res: Response) => handle(res, AdminService.createVendor(req.body, studioActor(req)), 201),
   updateVendor: (req: Request, res: Response) =>
-    handle(res, AdminService.updateVendor(Number(req.params.vendorId), req.body)),
+    handle(res, AdminService.updateVendor(Number(req.params.vendorId), req.body, studioActor(req))),
 
-  listEvents: (_req: Request, res: Response) => handle(res, AdminService.listEvents()),
-  createEvent: (req: Request, res: Response) => handle(res, AdminService.createEvent(req.body), 201),
+  listEvents: (req: Request, res: Response) => handle(res, AdminService.listEvents(studioActor(req))),
+  createEvent: (req: Request, res: Response) => handle(res, AdminService.createEvent(req.body, studioActor(req)), 201),
   updateEvent: (req: Request, res: Response) =>
-    handle(res, AdminService.updateEvent(Number(req.params.eventId), req.body)),
+    handle(res, AdminService.updateEvent(Number(req.params.eventId), req.body, studioActor(req))),
   updateEventExperience: (req: Request, res: Response) =>
-    handle(res, AdminService.updateEventExperience(Number(req.params.eventId), req.body)),
+    handle(res, AdminService.updateEventExperience(Number(req.params.eventId), req.body, studioActor(req))),
 
-  listMenus: (_req: Request, res: Response) => handle(res, AdminService.listMenus()),
-  createMenu: (req: Request, res: Response) => handle(res, AdminService.createMenu(req.body), 201),
+  listMenus: (req: Request, res: Response) => handle(res, AdminService.listMenus(studioActor(req))),
+  createMenu: (req: Request, res: Response) => handle(res, AdminService.createMenu(req.body, studioActor(req)), 201),
   updateMenu: (req: Request, res: Response) =>
-    handle(res, AdminService.updateMenu(Number(req.params.menuId), req.body)),
+    handle(res, AdminService.updateMenu(Number(req.params.menuId), req.body, studioActor(req))),
 
   listEventMenus: (req: Request, res: Response) =>
-    handle(res, AdminService.listEventMenus(Number(req.params.eventId))),
+    handle(res, AdminService.listEventMenus(Number(req.params.eventId), studioActor(req))),
   listEventRegistrations: async (req: Request, res: Response) => {
     try {
       const eventId = Number(req.params.eventId);
       if (!eventId) return res.status(400).json({ message: 'Valid eventId is required' });
-      const vendorId = req.user?.role === 'vendor' ? Number(req.user.vendorId) : null;
+      const vendorIds = req.user?.role === 'vendor' ? (req.user.vendorIds ?? []) : [0];
+      const isAdmin = req.user?.role === 'admin';
       const from = req.query.from ? new Date(String(req.query.from)) : null;
       const to = req.query.to ? new Date(String(req.query.to)) : null;
       if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime())) || (from && to && from >= to)) {
@@ -59,10 +60,10 @@ export const AdminController = {
            FROM event_registration r
            JOIN event e ON e.id = r.event_id
           WHERE r.event_id = :eventId
-            AND (:vendorId IS NULL OR e.vendor_id = :vendorId)
+            AND (:isAdmin = true OR e.vendor_id IN (:vendorIds))
             ${dateFilters}
           ORDER BY r.registered_at DESC`,
-        { replacements: { eventId, vendorId, ...(from ? { from: from.toISOString() } : {}), ...(to ? { to: to.toISOString() } : {}) }, type: QueryTypes.SELECT },
+        { replacements: { eventId, isAdmin, vendorIds, ...(from ? { from: from.toISOString() } : {}), ...(to ? { to: to.toISOString() } : {}) }, type: QueryTypes.SELECT },
       );
       return res.json(rows);
     } catch (err: any) {
@@ -70,33 +71,33 @@ export const AdminController = {
     }
   },
   linkMenuToEvent: (req: Request, res: Response) =>
-    handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId), req.body?.displayName), 201),
+    handle(res, AdminService.linkMenuToEvent(Number(req.params.eventId), Number(req.params.menuId), req.body?.displayName, studioActor(req)), 201),
   unlinkMenuFromEvent: (req: Request, res: Response) =>
-    handle(res, AdminService.unlinkMenuFromEvent(Number(req.params.eventId), Number(req.params.menuId))),
+    handle(res, AdminService.unlinkMenuFromEvent(Number(req.params.eventId), Number(req.params.menuId), studioActor(req))),
 
   listItems: (req: Request, res: Response) =>
-    handle(res, AdminService.listItems(req.query.menuId ? Number(req.query.menuId) : undefined)),
-  createItem: (req: Request, res: Response) => handle(res, AdminService.createItem(req.body), 201),
+    handle(res, AdminService.listItems(req.query.menuId ? Number(req.query.menuId) : undefined, studioActor(req))),
+  createItem: (req: Request, res: Response) => handle(res, AdminService.createItem(req.body, studioActor(req)), 201),
   updateItem: (req: Request, res: Response) =>
-    handle(res, AdminService.updateItem(Number(req.params.itemId), req.body)),
+    handle(res, AdminService.updateItem(Number(req.params.itemId), req.body, studioActor(req))),
 
   setEventStatus: (req: Request, res: Response) =>
-    handle(res, AdminService.setEventStatus(Number(req.params.eventId), req.body?.status)),
+    handle(res, AdminService.setEventStatus(Number(req.params.eventId), req.body?.status, studioActor(req))),
 
   getItemPool: (req: Request, res: Response) =>
-    handle(res, AdminService.getItemPool(Number(req.params.vendorId))),
+    handle(res, AdminService.getItemPool(Number(req.params.vendorId), studioActor(req))),
 
   copyMenu: (req: Request, res: Response) =>
-    handle(res, AdminService.copyMenu(Number(req.params.menuId), req.body), 201),
+    handle(res, AdminService.copyMenu(Number(req.params.menuId), req.body, studioActor(req)), 201),
 
   listQrMappings: (req: Request, res: Response) =>
-    handle(res, AdminService.listQrMappings({ origin: getOrigin(req) }, req.query.vendorId ? Number(req.query.vendorId) : undefined)),
+    handle(res, AdminService.listQrMappings({ origin: getOrigin(req) }, req.query.vendorId ? Number(req.query.vendorId) : undefined, studioActor(req))),
   upsertQrMapping: (req: Request, res: Response) =>
-    handle(res, AdminService.upsertQrMapping(req.body, { origin: getOrigin(req) }), 201),
+    handle(res, AdminService.upsertQrMapping(req.body, { origin: getOrigin(req) }, studioActor(req)), 201),
   updateQrMapping: (req: Request, res: Response) =>
-    handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) })),
+    handle(res, AdminService.updateQrMapping(Number(req.params.id), req.body, { origin: getOrigin(req) }, studioActor(req))),
   getOrCreateEventQr: (req: Request, res: Response) =>
-    handle(res, AdminService.getOrCreateEventQr(Number(req.params.eventId), { origin: getOrigin(req) }), 201),
+    handle(res, AdminService.getOrCreateEventQr(Number(req.params.eventId), { origin: getOrigin(req) }, studioActor(req)), 201),
 
   listQrTemplates: (req: Request, res: Response) => handle(res, AdminService.listQrTemplates(studioActor(req))),
   getQrTemplate: (req: Request, res: Response) =>
@@ -125,27 +126,27 @@ export const AdminController = {
     handle(res, AdminService.deletePrintCollection(Number(req.params.id), studioActor(req))),
 
   deleteVendor: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteVendor(Number(req.params.vendorId))),
+    handle(res, AdminService.deleteVendor(Number(req.params.vendorId), studioActor(req))),
   deleteEvent: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteEvent(Number(req.params.eventId))),
+    handle(res, AdminService.deleteEvent(Number(req.params.eventId), studioActor(req))),
   deleteMenu: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteMenu(Number(req.params.menuId))),
+    handle(res, AdminService.deleteMenu(Number(req.params.menuId), studioActor(req))),
   deleteItem: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteItem(Number(req.params.itemId))),
+    handle(res, AdminService.deleteItem(Number(req.params.itemId), studioActor(req))),
   deleteQrMapping: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteQrMapping(Number(req.params.id))),
+    handle(res, AdminService.deleteQrMapping(Number(req.params.id), studioActor(req))),
 
   getPreviews: (req: Request, res: Response) =>
-    handle(res, AdminService.getPreviews({ origin: getOrigin(req) })),
+    handle(res, AdminService.getPreviews({ origin: getOrigin(req) }, studioActor(req))),
   buildMenuPath: (req: Request, res: Response) =>
     handle(
       res,
-      AdminService.buildMenuPath(Number(req.query.eventId), Number(req.query.menuId), { origin: getOrigin(req) })
+      AdminService.buildMenuPath(Number(req.query.eventId), Number(req.query.menuId), { origin: getOrigin(req) }, studioActor(req))
     ),
   buildItemPath: (req: Request, res: Response) =>
     handle(
       res,
-      AdminService.buildItemPath(Number(req.query.eventId), Number(req.query.itemId), { origin: getOrigin(req) })
+      AdminService.buildItemPath(Number(req.query.eventId), Number(req.query.itemId), { origin: getOrigin(req) }, studioActor(req))
     ),
 
   // ── Session invalidation ────────────────────────────────────────────────────

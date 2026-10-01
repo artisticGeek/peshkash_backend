@@ -15,7 +15,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../config/sequelize';
-import { AuthService, AuthPayload, Role } from '../services/AuthService';
+import { ALL_SECTIONS, AuthService, AuthPayload, Role } from '../services/AuthService';
 
 // Augment Express Request to carry auth payload
 declare global {
@@ -58,6 +58,36 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     // Table may not exist yet on first boot — allow through
   }
 
+  // Refresh vendor associations on every authenticated request. This makes
+  // phone-to-vendor changes effective immediately instead of waiting for the
+  // long-lived JWT to be replaced.
+  if (payload.role === 'vendor') {
+    try {
+      const [vendors, grants] = await Promise.all([
+        sequelize.query<{ id: string | number }>(
+          'SELECT id FROM vendor WHERE phone = :phone ORDER BY id',
+          { replacements: { phone: payload.phone }, type: QueryTypes.SELECT },
+        ),
+        sequelize.query<{ section: string }>(
+          'SELECT section FROM admin_section_grant WHERE phone = :phone ORDER BY section',
+          { replacements: { phone: payload.phone }, type: QueryTypes.SELECT },
+        ),
+      ]);
+      payload.vendorIds = vendors.map((vendor) => Number(vendor.id));
+      payload.vendorId = payload.vendorIds[0] ?? null;
+      payload.sectionGrants = grants.map((grant) => grant.section);
+      if (!payload.vendorIds.length) {
+        res.status(403).json({ error: 'No vendor workspace is associated with this phone.' });
+        return;
+      }
+    } catch {
+      res.status(503).json({ error: 'Could not verify vendor workspace access.' });
+      return;
+    }
+  } else if (payload.role === 'admin') {
+    payload.sectionGrants = ALL_SECTIONS;
+  }
+
   req.user = payload;
   next();
 }
@@ -76,7 +106,7 @@ export function requireRole(...roles: Role[]) {
 }
 
 /**
- * Hard gate — an admin must hold this section grant. The section itself is always
+ * Hard gate — a vendor user must hold this section grant. The section itself is always
  * hardcoded in the route definition, never read from the request, so there's nothing
  * for a client to spoof by sending a different section name.
  *
@@ -84,24 +114,75 @@ export function requireRole(...roles: Role[]) {
  * `sectionGrants` JWT claim: a token can live up to a year (JWT_TTL_HOURS), and a grant
  * needs to be revocable immediately by editing one DB row, not by forcing a re-login.
  *
- * Non-admin roles (vendor) pass through untouched — they're scoped by vendorId instead.
+ * Admins are superusers and always pass. Vendor data is scoped separately by vendorIds.
  */
-export function requireSection(section: string) {
+export function requireSection(...sections: string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required.' });
     }
-    if (req.user.role !== 'admin') { next(); return; }
+    if (req.user.role === 'admin') { next(); return; }
     try {
       const rows = await sequelize.query<{ exists: boolean }>(
-        'SELECT 1 AS exists FROM admin_section_grant WHERE phone = :phone AND section = :section LIMIT 1',
-        { replacements: { phone: req.user.phone, section }, type: QueryTypes.SELECT },
+        'SELECT 1 AS exists FROM admin_section_grant WHERE phone = :phone AND section IN (:sections) LIMIT 1',
+        { replacements: { phone: req.user.phone, sections }, type: QueryTypes.SELECT },
       );
       if (!rows.length) {
         return res.status(403).json({ error: 'Insufficient permissions for this section.' });
       }
     } catch {
-      // Table may not exist yet on first boot — allow through rather than lock everyone out
+      return res.status(503).json({ error: 'Could not verify section permissions.' });
+    }
+    next();
+  };
+}
+
+type VendorAccessOptions = {
+  vendor?: 'query' | 'body' | 'params';
+  vendorRequired?: boolean;
+  event?: 'query' | 'body' | 'params';
+  item?: 'query' | 'body' | 'params';
+};
+
+/** Enforce that a vendor-scoped request resolves to one of the caller's live workspaces. */
+export function requireVendorAccess(options: VendorAccessOptions = {}) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+    if (req.user.role === 'admin') { next(); return; }
+
+    const allowed = req.user.vendorIds ?? (req.user.vendorId ? [Number(req.user.vendorId)] : []);
+    const source = (kind: 'query' | 'body' | 'params') => req[kind] as Record<string, unknown>;
+    const vendorIdsToCheck: number[] = [];
+    let vendorId = options.vendor ? Number(source(options.vendor).vendorId) : 0;
+    if (!vendorId && options.vendor) vendorId = Number(req.body?.vendorId ?? req.query?.vendorId ?? req.params?.vendorId);
+    if (vendorId) vendorIdsToCheck.push(vendorId);
+    try {
+      if (options.event) {
+        const eventId = Number(source(options.event).eventId);
+        if (eventId) {
+          const rows = await sequelize.query<{ vendor_id: string | number }>(
+            'SELECT vendor_id FROM event WHERE id = :id LIMIT 1',
+            { replacements: { id: eventId }, type: QueryTypes.SELECT },
+          );
+          vendorIdsToCheck.push(Number(rows[0]?.vendor_id));
+        }
+      }
+      if (options.item) {
+        const itemId = Number(source(options.item).itemId);
+        if (itemId) {
+          const rows = await sequelize.query<{ vendor_id: string | number }>(
+            `SELECT m.vendor_id FROM line_item i JOIN menu m ON m.id = i.menu_id WHERE i.id = :id LIMIT 1`,
+            { replacements: { id: itemId }, type: QueryTypes.SELECT },
+          );
+          vendorIdsToCheck.push(Number(rows[0]?.vendor_id));
+        }
+      }
+    } catch {
+      return res.status(503).json({ error: 'Could not verify vendor workspace access.' });
+    }
+    if (!vendorId && options.vendorRequired) return res.status(400).json({ error: 'vendorId is required.' });
+    if (!vendorIdsToCheck.length || vendorIdsToCheck.some((id) => !allowed.includes(id))) {
+      return res.status(403).json({ error: 'Forbidden for this vendor workspace.' });
     }
     next();
   };
