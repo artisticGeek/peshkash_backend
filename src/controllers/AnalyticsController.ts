@@ -20,11 +20,15 @@ function parseVendorId(raw: unknown): number | undefined {
   return isNaN(n) || n <= 0 ? undefined : n;
 }
 
+function scopedVendorId(req: Request, raw: unknown): number | undefined {
+  return req.user?.role === 'vendor' ? Number(req.user.vendorId) || undefined : parseVendorId(raw);
+}
+
 export const AnalyticsController = {
   /** GET /api/analytics/summary?from=ISO&to=ISO&vendorId=1 (or ?range=30d for compat) */
   getSummary: async (req: Request, res: Response) => {
     try {
-      const vendorId = parseVendorId(req.query.vendorId);
+      const vendorId = scopedVendorId(req, req.query.vendorId);
       const eventId  = parseVendorId(req.query.eventId);
 
       let f;
@@ -66,7 +70,7 @@ export const AnalyticsController = {
   /** GET /api/analytics/event-log?vendorId=1&eventId=2&from=ISO&to=ISO&limit=50&offset=0 */
   getEventLog: async (req: Request, res: Response) => {
     try {
-      const vendorId = parseVendorId(req.query.vendorId);
+      const vendorId = scopedVendorId(req, req.query.vendorId);
       const eventId  = parseVendorId(req.query.eventId);
       const itemId   = parseVendorId(req.query.itemId);
       if (!vendorId && !eventId && !itemId) return res.status(400).json({ error: 'vendorId, eventId, or itemId required' });
@@ -115,7 +119,7 @@ export const AnalyticsController = {
   getTopItems: async (req: Request, res: Response) => {
     try {
       const range = parseRange(req.query.range);
-      const vendorId = parseVendorId(req.query.vendorId);
+      const vendorId = scopedVendorId(req, req.query.vendorId);
       const data = await AnalyticsQueryService.getTopItems(range, vendorId);
       return res.json(data);
     } catch (err) {
@@ -156,7 +160,7 @@ export const AnalyticsController = {
   getEventLeaderboard: async (req: Request, res: Response) => {
     try {
       const range = parseRange(req.query.range);
-      const vendorId = parseVendorId(req.query.vendorId);
+      const vendorId = scopedVendorId(req, req.query.vendorId);
       const data = await AnalyticsQueryService.getEventLeaderboard(range, vendorId);
       return res.json(data);
     } catch (err) {

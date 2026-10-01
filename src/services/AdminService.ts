@@ -1,4 +1,5 @@
 import { Op, QueryTypes, literal } from 'sequelize';
+import { randomUUID } from 'crypto';
 import { sequelize } from '../config/sequelize';
 import { Event } from '../models/event.model';
 import { EventMenuMapping } from '../models/eventMenuMapping.model';
@@ -167,6 +168,14 @@ function requireText(value: unknown, field: string) {
     throw badRequest(`${field} is required`);
   }
   return value.trim();
+}
+
+function normalizedPhone(value: unknown): string {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (digits.length > 7) return `+${digits}`;
+  throw badRequest('A valid phone number is required');
 }
 
 function optionalDate(value: unknown) {
@@ -1233,7 +1242,7 @@ export const AdminService = {
       order: [['updatedAt', 'DESC']],
     }),
 
-  createPrintCollection: (body: any, actor?: StudioActor) => {
+  createPrintCollection: async (body: any, actor?: StudioActor) => {
     const name = requireText(body?.name, 'Collection name').slice(0, 120);
     const requestedEventId = Number(body?.eventId);
     const eventId = Number.isFinite(requestedEventId) && requestedEventId > 0 ? requestedEventId : null;
@@ -1244,11 +1253,22 @@ export const AdminService = {
     if (!Array.isArray(configuration.orderedTargetKeys) || !configuration.orderedTargetKeys.length) {
       throw badRequest('A print collection must contain at least one QR artwork');
     }
+    const vendorId = actorVendorId(actor, body.vendorId);
+    if (eventId) {
+      const event = await Event.findByPk(eventId, { attributes: ['id', 'vendorId'] });
+      if (!event) throw notFound('Event not found');
+      assertActorVendor(actor, event.vendorId);
+      if (vendorId && Number(event.vendorId) !== Number(vendorId)) {
+        throw forbidden('Event belongs to another vendor workspace');
+      }
+    }
     return PrintCollection.create({
       name,
       eventId,
-      vendorId: actorVendorId(actor, body.vendorId),
+      vendorId,
       configuration,
+      notes: String(body?.notes || '').trim().slice(0, 2000) || null,
+      remarks: String(body?.remarks || '').trim().slice(0, 2000) || null,
     } as any);
   },
 
@@ -1265,8 +1285,45 @@ export const AdminService = {
     await collection.update({
       ...(body?.name !== undefined ? { name: requireText(body.name, 'Collection name').slice(0, 120) } : {}),
       ...(configuration !== undefined ? { configuration } : {}),
+      ...(body?.notes !== undefined ? { notes: String(body.notes || '').trim().slice(0, 2000) || null } : {}),
+      ...(body?.remarks !== undefined ? { remarks: String(body.remarks || '').trim().slice(0, 2000) || null } : {}),
     });
     return collection;
+  },
+
+  sharePrintCollection: async (id: number, body: any, actor?: StudioActor) => {
+    const collection = await PrintCollection.findByPk(id);
+    if (!collection) throw notFound('Print collection not found');
+    assertActorVendor(actor, collection.vendorId);
+    const phone = normalizedPhone(body?.phone);
+    const artworks = Array.isArray(body?.artworks) ? body.artworks.slice(0, 200) : [];
+    if (!artworks.length) throw badRequest('Render the collection before sharing it');
+    for (const artwork of artworks) {
+      if (!artwork || typeof artwork !== 'object' || typeof artwork.svg !== 'string' || artwork.svg.length > 2_000_000) {
+        throw badRequest('One or more shared artworks are invalid');
+      }
+    }
+    const token = randomUUID();
+    const rows = await sequelize.query<{ token: string }>(
+      `INSERT INTO print_collection_share (collection_id, phone, token, artworks, created_by)
+       VALUES (:collectionId, :phone, :token, CAST(:artworks AS jsonb), :createdBy)
+       ON CONFLICT (collection_id, phone) DO UPDATE SET
+         token = EXCLUDED.token, artworks = EXCLUDED.artworks,
+         created_by = EXCLUDED.created_by, created_at = NOW()
+       RETURNING token`,
+      {
+        replacements: {
+          collectionId: id,
+          phone,
+          token,
+          artworks: JSON.stringify(artworks),
+          createdBy: actor?.role === 'admin' ? 'admin' : `vendor:${actor?.vendorId}`,
+        },
+        type: QueryTypes.SELECT,
+      },
+    );
+    const shareToken = rows[0]?.token || token;
+    return { phone, token: shareToken, path: `/print-collections/shared/${shareToken}` };
   },
 
   deletePrintCollection: async (id: number, actor?: StudioActor) => {

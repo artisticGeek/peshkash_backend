@@ -67,6 +67,7 @@ router.get('/print-collections', requireSection('qr'), AdminController.listPrint
 router.post('/print-collections', requireSection('qr'), AdminController.createPrintCollection);
 router.put('/print-collections/:id', requireSection('qr'), AdminController.updatePrintCollection);
 router.delete('/print-collections/:id', requireSection('qr'), AdminController.deletePrintCollection);
+router.post('/print-collections/:id/shares', requireSection('qr'), AdminController.sharePrintCollection);
 
 // Cross-cutting helper endpoints for content the caller already has edit access to —
 // not gated as their own section.
