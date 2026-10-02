@@ -39,6 +39,10 @@ export interface AuthPayload {
 const JWT_SECRET    = process.env.JWT_SECRET ?? 'peshkash-dev-secret-change-in-prod';
 const JWT_TTL_HOURS = Number(process.env.JWT_TTL_HOURS ?? 8760); // 1 year
 
+function isUndefinedTable(error: any): boolean {
+  return error?.original?.code === '42P01' || error?.parent?.code === '42P01' || error?.code === '42P01';
+}
+
 if (!process.env.JWT_SECRET) {
   console.warn('[AuthService] ⚠️  JWT_SECRET not set — using insecure default. Set JWT_SECRET in production.');
 }
@@ -60,8 +64,11 @@ export const AuthService = {
       if (rows.length > 0) {
         return { phone: normalised, role: 'admin', vendorId: null, vendorIds: [], sectionGrants: ALL_SECTIONS };
       }
-    } catch {
-      // Table might not exist yet on first boot — fall through
+    } catch (error) {
+      // A missing optional bootstrap table may fall through to vendor lookup.
+      // Connectivity and timeout failures must not silently downgrade an
+      // administrator to customer after a valid OTP.
+      if (!isUndefinedTable(error)) throw error;
     }
 
     // 2. Vendor table. A phone may own more than one vendor workspace; the
@@ -82,8 +89,10 @@ export const AuthService = {
         const vendorIds = vendors.map((vendor) => Number(vendor.id));
         return { phone: normalised, role: 'vendor', vendorId: vendorIds[0], vendorIds, sectionGrants };
       }
-    } catch {
-      // DB unavailable — fall through to customer
+    } catch (error) {
+      // Vendor is a core identity table. Treat lookup failures as login
+      // failures instead of issuing a valid customer token with the wrong role.
+      throw error;
     }
 
     // 3. Customer (no DB record)
