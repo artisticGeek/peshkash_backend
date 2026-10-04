@@ -11,6 +11,7 @@ import { PrintCollectionShareController } from '../controllers/PrintCollectionSh
 const router = Router();
 
 router.get('/public-config', PublicConfigController.get);
+router.get('/print-collections/shared', requireRole('customer', 'vendor', 'admin'), PrintCollectionShareController.list);
 router.get('/print-collections/shared/:token', requireRole('customer', 'vendor', 'admin'), PrintCollectionShareController.get);
 
 router.get('/event/:eventName', EventExperienceController.getPublicEvent);

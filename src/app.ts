@@ -16,6 +16,10 @@ const app = express();
 app.disable('x-powered-by');
 app.use((_req, res, next) => { res.setHeader('X-App', 'Peshkash'); next(); });
 app.use(cors());
+// A print collection share carries the rendered SVG snapshots that the
+// recipient is allowed to download. Keep the normal JSON ceiling everywhere
+// else, but allow this one authenticated route to accept a complete print job.
+app.use('/api/admin/print-collections/:id/shares', express.json({ limit: '25mb' }));
 app.use(express.json());
 
 // Auth middleware — attaches req.user from Bearer token on every request (non-blocking)
