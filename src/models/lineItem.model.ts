@@ -65,6 +65,10 @@ export class LineItem extends Model<LineItem> {
   @Column({ field: 'spice_level', type: DataType.INTEGER })
   spiceLevel?: number;
 
+  /** Per-item CTA override; null inherits the menu's cta_config. */
+  @Column({ field: 'cta_config', type: DataType.JSONB, allowNull: true })
+  ctaConfig?: Record<string, unknown> | null;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

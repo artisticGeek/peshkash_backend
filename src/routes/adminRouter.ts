@@ -34,6 +34,7 @@ router.post('/menus', requireSection('designer'), AdminController.createMenu);
 router.put('/menus/:menuId', requireSection('designer'), AdminController.updateMenu);
 router.delete('/menus/:menuId', requireSection('designer'), AdminController.deleteMenu);
 router.post('/menus/:menuId/copy', requireSection('designer'), AdminController.copyMenu);
+router.patch('/menus/:menuId/order', requireSection('designer'), AdminController.reorderMenu);
 
 router.get('/vendors/:vendorId/item-pool', requireSection('designer'), AdminController.getItemPool);
 

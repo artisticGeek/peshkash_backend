@@ -44,6 +44,10 @@ export class Menu extends Model<Menu> {
   @Column({ field: 'is_active', type: DataType.BOOLEAN })
   isActive!: boolean;
 
+  /** Default item-page CTAs for every item in this menu. See utils/CtaConfigUtil. */
+  @Column({ field: 'cta_config', type: DataType.JSONB, defaultValue: {} })
+  ctaConfig!: Record<string, unknown>;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

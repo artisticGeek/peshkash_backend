@@ -110,6 +110,11 @@ export async function runMigrations(): Promise<void> {
   await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS item_material_heading VARCHAR(80) NOT NULL DEFAULT 'Material'`).catch(() => {});
   await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS elaborate_descriptions BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
 
+  // Menu Studio (4.0) — configurable item-page CTAs. The models declare these columns, so a
+  // failure here must stop boot instead of every menu/item query failing later.
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS cta_config JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS cta_config JSONB`);
+
   // vendor — auth and contact-page columns
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone         VARCHAR(20)`).catch(() => {});
