@@ -27,6 +27,12 @@ export class Vendor extends Model<Vendor> {
   @Column({ field: 'has_contact_page', type: DataType.BOOLEAN, defaultValue: false })
   hasContactPage!: boolean;
 
+  @Column({ field: 'contact_page_mode', type: DataType.STRING(24), defaultValue: 'classic' })
+  contactPageMode!: 'classic' | 'editorial' | 'lookbook' | 'programme' | 'shopfront';
+
+  @Column({ field: 'contact_page_config', type: DataType.JSONB, defaultValue: {} })
+  contactPageConfig!: Record<string, unknown>;
+
   @Column({ field: 'logo_url', type: DataType.TEXT, allowNull: true })
   logoUrl?: string;
 
