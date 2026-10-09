@@ -6,6 +6,21 @@ import { AnalyticsRecorder } from '../services/AnalyticsRecorder';
 import { QrLinkMappingRepo } from '../repositories/qrLinkMapping.repository';
 import { VendorRepo } from '../repositories/vendor.repository';
 import { DeviceLinkService } from '../services/DeviceLinkService';
+import { Event } from '../models/event.model';
+import { Menu } from '../models/menu.model';
+import { LineItem } from '../models/lineItem.model';
+import { EventMenuMapping } from '../models/eventMenuMapping.model';
+
+function publicContactRows(contact: unknown): string[] {
+  if (!Array.isArray(contact)) return [];
+  return contact.filter((row): row is string => {
+    if (typeof row !== 'string') return false;
+    if (!row.toLowerCase().startsWith('phone:')) return true;
+    const value = row.slice(row.indexOf(':') + 1).trim();
+    const digits = value.replace(/\D/g, '');
+    return /^[+\d\s().-]+$/.test(value) && digits.length >= 7 && digits.length <= 15;
+  });
+}
 
 export const QrMappingController = {
   getMenuByEventAndMenuName: async (req: Request, res: Response) => {
@@ -159,16 +174,53 @@ export const QrMappingController = {
         return res.status(403).json({ error: 'Vendor contact page not enabled' });
       }
 
-      // Return vendor contact information
+      const [events, menus] = await Promise.all([
+        Event.findAll({ where: { vendorId: vendor.id }, order: [['startTime', 'ASC']] }),
+        Menu.findAll({ where: { vendorId: vendor.id, isActive: true }, order: [['createdAt', 'DESC']] }),
+      ]);
+      const publicMenus = await Promise.all(menus.map(async menu => {
+        const [itemCount, mapping] = await Promise.all([
+          LineItem.count({ where: { menuId: menu.id, isActive: true } }),
+          EventMenuMapping.findOne({ where: { menuId: menu.id }, include: [{ model: Event, attributes: ['name'] }], order: [['createdAt', 'DESC']] }),
+        ]);
+        return {
+          id: Number(menu.id),
+          name: menu.name,
+          displayName: menu.displayName,
+          description: menu.description,
+          type: menu.type,
+          itemCount,
+          publicPath: mapping?.event?.name ? `/event/${mapping.event.name}/menu/${menu.name}` : null,
+        };
+      }));
+      const storedMode = String(vendor.contactPageMode || 'classic').toLowerCase();
+      const contactPageMode = storedMode === 'page'
+        ? 'editorial'
+        : ['classic', 'editorial', 'lookbook', 'programme', 'shopfront'].includes(storedMode) ? storedMode : 'classic';
+
+      // Return the public vendor profile and the content available to its configured page.
       return res.json({
         id: vendor.id,
         name: vendor.name,
         displayName: vendor.displayName,
         description: vendor.description,
-        contact: vendor.contact,
+        contact: publicContactRows(vendor.contact),
         address: vendor.address,
         logoUrl: vendor.logoUrl ?? null,
         requireLogin: vendor.requireLogin ?? false,
+        contactPageMode,
+        contactPageConfig: vendor.contactPageConfig ?? {},
+        events: events.map(event => ({
+          id: Number(event.id),
+          name: event.name,
+          displayName: event.displayName,
+          description: event.eventDescription,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          status: event.status,
+          experience: event.experienceConfig ?? {},
+        })),
+        menus: publicMenus,
       });
 
     } catch (error) {

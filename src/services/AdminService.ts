@@ -268,6 +268,56 @@ function normalizeLoginPhone(raw: unknown): string | null {
   return trimmed;
 }
 
+const CONTACT_PAGE_MODES = new Set(['classic', 'editorial', 'lookbook', 'programme', 'shopfront']);
+const CONTACT_PAGE_SECTIONS = new Set(['story', 'gallery', 'events', 'menus', 'contact']);
+const EVENT_SCOPES = new Set(['all', 'selected', 'upcoming', 'past']);
+const GALLERY_LAYOUTS = new Set(['carousel', 'grid', 'spread']);
+
+function cleanContactPageMode(raw: unknown): Vendor['contactPageMode'] {
+  const value = String(raw || 'classic').toLowerCase();
+  if (value === 'page') return 'editorial';
+  return (CONTACT_PAGE_MODES.has(value) ? value : 'classic') as Vendor['contactPageMode'];
+}
+
+function cleanContactPageConfig(raw: unknown): Record<string, unknown> {
+  const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, any> : {};
+  const sections = Array.isArray(input.sections)
+    ? input.sections
+        .filter((section: any) => CONTACT_PAGE_SECTIONS.has(String(section?.key)))
+        .slice(0, 5)
+        .map((section: any) => ({ key: String(section.key), enabled: section.enabled !== false }))
+    : [];
+  for (const key of CONTACT_PAGE_SECTIONS) {
+    if (!sections.some((section: any) => section.key === key)) sections.push({ key, enabled: true });
+  }
+  const gallery = Array.isArray(input.gallery)
+    ? input.gallery.slice(0, 24).map((item: any) => ({
+        url: String(item?.url || '').trim().slice(0, 2048),
+        caption: String(item?.caption || '').trim().slice(0, 160),
+      })).filter((item: any) => item.url)
+    : [];
+  const ids = (value: unknown) => Array.isArray(value)
+    ? [...new Set(value.map(Number).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 100)
+    : [];
+  const text = (value: unknown, max: number) => String(value || '').trim().slice(0, max);
+  const eventScope = String(input.eventScope || 'all');
+  return {
+    kicker: text(input.kicker, 80),
+    coverImageUrl: text(input.coverImageUrl, 2048),
+    storyHeading: text(input.storyHeading, 120),
+    storyBody: text(input.storyBody, 12000),
+    storyQuote: text(input.storyQuote, 500),
+    storyQuoteBy: text(input.storyQuoteBy, 120),
+    gallery,
+    galleryLayout: GALLERY_LAYOUTS.has(String(input.galleryLayout)) ? String(input.galleryLayout) : 'grid',
+    sections,
+    showCountdown: input.showCountdown !== false,
+    eventScope: EVENT_SCOPES.has(eventScope) ? eventScope : 'all',
+    eventIds: ids(input.eventIds),
+    menuIds: ids(input.menuIds),
+  };
+}
+
 function cleanVendor(vendor: Vendor) {
   return {
     id: vendor.id,
@@ -277,6 +327,8 @@ function cleanVendor(vendor: Vendor) {
     contact: vendor.contact ?? [],
     address: vendor.address,
     hasContactPage: vendor.hasContactPage,
+    contactPageMode: cleanContactPageMode(vendor.contactPageMode),
+    contactPageConfig: cleanContactPageConfig(vendor.contactPageConfig),
     logoUrl: vendor.logoUrl ?? null,
     loginPhone: vendor.phone ?? null,
     requireLogin: vendor.requireLogin,
@@ -312,6 +364,7 @@ function cleanMenu(menu: Menu) {
     displayName: menu.displayName,
     description: menu.description,
     itemStoryHeading: menu.itemStoryHeading || 'The backstory',
+    itemMaterialHeading: menu.itemMaterialHeading || 'Material',
     elaborateDescriptions: menu.elaborateDescriptions ?? false,
     isActive: menu.isActive,
     vendorId: menu.vendorId,
@@ -498,6 +551,8 @@ export const AdminService = {
       contact: Array.isArray(body.contact) ? body.contact.filter(Boolean) : [],
       address: body.address?.trim() || null,
       hasContactPage: Boolean(body.hasContactPage),
+      contactPageMode: cleanContactPageMode(body.contactPageMode),
+      contactPageConfig: cleanContactPageConfig(body.contactPageConfig),
       logoUrl: body.logoUrl?.trim() || null,
       phone: normalizeLoginPhone(body.loginPhone),
       requireLogin: Boolean(body.requireLogin),
@@ -522,6 +577,8 @@ export const AdminService = {
       contact: Array.isArray(body.contact) ? body.contact.filter(Boolean) : vendor.contact,
       address: body.address?.trim() || null,
       hasContactPage: body.hasContactPage !== undefined ? Boolean(body.hasContactPage) : vendor.hasContactPage,
+      contactPageMode: body.contactPageMode !== undefined ? cleanContactPageMode(body.contactPageMode) : vendor.contactPageMode,
+      contactPageConfig: body.contactPageConfig !== undefined ? cleanContactPageConfig(body.contactPageConfig) : vendor.contactPageConfig,
       logoUrl: body.logoUrl !== undefined ? (body.logoUrl?.trim() || null) : vendor.logoUrl,
       phone: (actor?.role === 'vendor'
         ? vendor.phone
@@ -637,6 +694,7 @@ export const AdminService = {
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || null,
       itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory',
+      itemMaterialHeading: body.itemMaterialHeading?.trim().slice(0, 80) || 'Material',
       elaborateDescriptions: Boolean(body.elaborateDescriptions),
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       type: menuType,
@@ -655,7 +713,11 @@ export const AdminService = {
     const vendorId = body.vendorId !== undefined ? Number(body.vendorId) : menu.vendorId;
     if (!vendorId) throw badRequest('Vendor is required');
     assertActorVendor(actor, vendorId);
-    const name = body.name !== undefined ? requireSlug(body.name, 'Menu slug') : menu.name;
+    // Existing menus may predate the lowercase slug rule. Do not block unrelated
+    // settings edits by re-validating an unchanged legacy slug.
+    const name = body.name !== undefined && body.name !== menu.name
+      ? requireSlug(body.name, 'Menu slug')
+      : menu.name;
     const duplicate = await Menu.findOne({ where: { vendorId, name, id: { [Op.ne]: id } } });
     if (duplicate) throw conflict('This vendor already has a menu with this slug. Use a unique menu slug such as adding event type or version.');
     await menu.update({
@@ -666,6 +728,9 @@ export const AdminService = {
       itemStoryHeading: body.itemStoryHeading !== undefined
         ? (body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory')
         : menu.itemStoryHeading,
+      itemMaterialHeading: body.itemMaterialHeading !== undefined
+        ? (body.itemMaterialHeading?.trim().slice(0, 80) || 'Material')
+        : menu.itemMaterialHeading,
       elaborateDescriptions: body.elaborateDescriptions !== undefined
         ? Boolean(body.elaborateDescriptions)
         : menu.elaborateDescriptions,
@@ -1016,6 +1081,7 @@ export const AdminService = {
       displayName: requireText(body.displayName, 'Menu display name'),
       description: body.description?.trim() || source.description || null,
       itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || source.itemStoryHeading || 'The backstory',
+      itemMaterialHeading: body.itemMaterialHeading?.trim().slice(0, 80) || source.itemMaterialHeading || 'Material',
       isActive: true,
       type: 'personalized',
       sourceMenuId: source.id,

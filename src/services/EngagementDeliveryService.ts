@@ -89,8 +89,8 @@ export async function sendPush(subscription: PushSubscription, campaign: Campaig
     await webpush.sendNotification(subscription, JSON.stringify({
       title: campaign.title,
       body: campaign.message,
-      icon: '/android-chrome-192x192.png',
-      badge: '/favicon-32x32.png',
+      icon: '/peshkash-notification-icon.png',
+      badge: '/peshkash-notification-badge.png',
       url: campaign.destinationPath,
       tag: `peshkash-campaign-${campaign.id}`,
     // Normal-priority Web Push can be deferred while the browser/PWA is idle,

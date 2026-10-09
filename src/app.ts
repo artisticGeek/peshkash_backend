@@ -16,6 +16,10 @@ const app = express();
 app.disable('x-powered-by');
 app.use((_req, res, next) => { res.setHeader('X-App', 'Peshkash'); next(); });
 app.use(cors());
+// A print collection share carries the rendered SVG snapshots that the
+// recipient is allowed to download. Keep the normal JSON ceiling everywhere
+// else, but allow this one authenticated route to accept a complete print job.
+app.use('/api/admin/print-collections/:id/shares', express.json({ limit: '25mb' }));
 app.use(express.json());
 
 // Auth middleware — attaches req.user from Bearer token on every request (non-blocking)
@@ -103,12 +107,15 @@ export async function runMigrations(): Promise<void> {
 
   // menu — editorial presentation settings used by public item pages
   await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS item_story_heading VARCHAR(80) NOT NULL DEFAULT 'The backstory'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS item_material_heading VARCHAR(80) NOT NULL DEFAULT 'Material'`).catch(() => {});
   await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS elaborate_descriptions BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
 
   // vendor — auth and contact-page columns
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS phone         VARCHAR(20)`).catch(() => {});
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS require_login BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
+  await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS contact_page_mode VARCHAR(24) NOT NULL DEFAULT 'classic'`).catch(() => {});
+  await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS contact_page_config JSONB NOT NULL DEFAULT '{}'::jsonb`).catch(() => {});
 
   // event experience — menu-independent public pages and phone registrations
   // These are required by the event workflow. Do not swallow failures: serving an older schema
