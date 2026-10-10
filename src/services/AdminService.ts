@@ -11,6 +11,7 @@ import { PrintCollection } from '../models/printCollection.model';
 import { Vendor } from '../models/vendor.model';
 import { cleanCtaConfig, cleanItemCtaOverride } from '../utils/CtaConfigUtil';
 import { descendantIds, parentsFirst, selectForCopy, validateReorder } from '../utils/MenuTreeUtil';
+import { cleanDraftItems, cleanDraftMenu, planPublish, type DraftItem } from '../utils/MenuDraftUtil';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const QR_LIBRARY_TEMPLATE_IDS = new Set([
@@ -369,6 +370,7 @@ function cleanMenu(menu: Menu) {
     itemMaterialHeading: menu.itemMaterialHeading || 'Material',
     elaborateDescriptions: menu.elaborateDescriptions ?? false,
     ctaConfig: cleanCtaConfig(menu.getDataValue('ctaConfig')),
+    draftSavedAt: menu.getDataValue('draftSavedAt') ?? null,
     isActive: menu.isActive,
     vendorId: menu.vendorId,
     type: menu.getDataValue('type') ?? 'generic',
@@ -1134,6 +1136,97 @@ export const AdminService = {
       const result = await Menu.findByPk(newMenu.id, { include: [Vendor], transaction });
       return cleanMenu(result!);
     });
+  },
+
+  /** The menu's unsaved Menu Studio working copy, or null. */
+  getMenuDraft: async (menuId: number, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    return menu.getDataValue('draft') ?? null;
+  },
+
+  /** Stores a working copy privately. Guests keep seeing the live menu. */
+  saveMenuDraft: async (menuId: number, body: any, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    let draft;
+    try {
+      draft = { menu: cleanDraftMenu(body?.menu), items: cleanDraftItems(body?.items), savedAt: new Date().toISOString() };
+    } catch (err: any) {
+      throw badRequest(err.message);
+    }
+    await menu.update({ draft, draftSavedAt: new Date(draft.savedAt) } as any);
+    return { savedAt: draft.savedAt };
+  },
+
+  discardMenuDraft: async (menuId: number, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    await menu.update({ draft: null, draftSavedAt: null } as any);
+    return { ok: true };
+  },
+
+  /**
+   * Saves a working copy and makes it live in one transaction: menu settings are
+   * updated, removed entries deleted, new entries (negative ids) created and the
+   * rest updated. Clears any stored draft. Returns the live menu, its items and
+   * a map from temporary ids to the new real ids.
+   */
+  publishMenu: async (menuId: number, body: any, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    const existing = await LineItem.findAll({ where: { menuId }, attributes: ['id'] });
+    let settings;
+    let plan;
+    try {
+      settings = cleanDraftMenu(body?.menu);
+      plan = planPublish(existing.map((row) => Number(row.id)), cleanDraftItems(body?.items));
+    } catch (err: any) {
+      throw badRequest(err.message);
+    }
+    const fields = (item: DraftItem) => ({
+      name: item.name,
+      displayName: item.displayName,
+      description: item.description,
+      ingredients: item.ingredients,
+      image: item.image,
+      type: item.type,
+      enumType: item.enumType,
+      isActive: item.isActive,
+      sortOrder: item.sortOrder,
+      price: item.price,
+      tags: item.tags,
+      allergens: item.allergens,
+      isVeg: item.isVeg,
+      spiceLevel: item.spiceLevel,
+      ctaConfig: item.ctaConfig,
+    });
+    const idMap = new Map<number, number>();
+    const realId = (id: number | null) => (id === null ? null : id < 0 ? idMap.get(id) ?? null : id);
+
+    await sequelize.transaction(async (transaction) => {
+      await menu.update({ ...settings, draft: null, draftSavedAt: null } as any, { transaction });
+      // Delete first so a re-added item can reuse a removed item's link name.
+      if (plan.deleteIds.length) await LineItem.destroy({ where: { id: plan.deleteIds, menuId } as any, transaction });
+      for (const item of plan.creates) {
+        const created = await LineItem.create({ ...fields(item), menuId, parentId: realId(item.parentId) } as any, { transaction });
+        idMap.set(item.id, Number(created.id));
+      }
+      for (const item of plan.updates) {
+        await LineItem.update({ ...fields(item), parentId: realId(item.parentId) } as any, { where: { id: item.id, menuId } as any, transaction });
+      }
+    });
+
+    const updated = await Menu.findByPk(menuId, { include: [Vendor] });
+    return {
+      menu: cleanMenu(updated!),
+      items: await AdminService.listItems(menuId, actor),
+      idMap: Object.fromEntries(idMap),
+    };
   },
 
   /**

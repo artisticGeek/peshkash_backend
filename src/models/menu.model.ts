@@ -48,6 +48,13 @@ export class Menu extends Model<Menu> {
   @Column({ field: 'cta_config', type: DataType.JSONB, defaultValue: {} })
   ctaConfig!: Record<string, unknown>;
 
+  /** Unsaved Menu Studio working copy ({ menu, items, savedAt }); null when the menu has no draft. */
+  @Column({ field: 'draft', type: DataType.JSONB, allowNull: true })
+  draft?: Record<string, unknown> | null;
+
+  @Column({ field: 'draft_saved_at', type: DataType.DATE, allowNull: true })
+  draftSavedAt?: Date | null;
+
   @CreatedAt
   @Column({ field: 'created_at' })
   createdAt!: Date;

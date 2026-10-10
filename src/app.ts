@@ -114,6 +114,9 @@ export async function runMigrations(): Promise<void> {
   // failure here must stop boot instead of every menu/item query failing later.
   await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS cta_config JSONB NOT NULL DEFAULT '{}'::jsonb`);
   await sequelize.query(`ALTER TABLE line_item ADD COLUMN IF NOT EXISTS cta_config JSONB`);
+  // Menu Studio drafts: a private working copy that only reaches guests when it's saved.
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS draft JSONB`);
+  await sequelize.query(`ALTER TABLE menu ADD COLUMN IF NOT EXISTS draft_saved_at TIMESTAMPTZ`);
 
   // vendor — auth and contact-page columns
   await sequelize.query(`ALTER TABLE vendor ADD COLUMN IF NOT EXISTS logo_url      TEXT`).catch(() => {});

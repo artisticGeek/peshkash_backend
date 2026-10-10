@@ -87,6 +87,15 @@ export const AdminController = {
   getItemPool: (req: Request, res: Response) =>
     handle(res, AdminService.getItemPool(Number(req.params.vendorId), studioActor(req))),
 
+  getMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.getMenuDraft(Number(req.params.menuId), studioActor(req))),
+  saveMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.saveMenuDraft(Number(req.params.menuId), req.body, studioActor(req))),
+  discardMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.discardMenuDraft(Number(req.params.menuId), studioActor(req))),
+  publishMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.publishMenu(Number(req.params.menuId), req.body, studioActor(req))),
+
   reorderMenu: (req: Request, res: Response) =>
     handle(res, AdminService.reorderMenu(Number(req.params.menuId), req.body, studioActor(req))),
 
