@@ -87,6 +87,18 @@ export const AdminController = {
   getItemPool: (req: Request, res: Response) =>
     handle(res, AdminService.getItemPool(Number(req.params.vendorId), studioActor(req))),
 
+  getMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.getMenuDraft(Number(req.params.menuId), studioActor(req))),
+  saveMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.saveMenuDraft(Number(req.params.menuId), req.body, studioActor(req))),
+  discardMenuDraft: (req: Request, res: Response) =>
+    handle(res, AdminService.discardMenuDraft(Number(req.params.menuId), studioActor(req))),
+  publishMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.publishMenu(Number(req.params.menuId), req.body, studioActor(req))),
+
+  reorderMenu: (req: Request, res: Response) =>
+    handle(res, AdminService.reorderMenu(Number(req.params.menuId), req.body, studioActor(req))),
+
   copyMenu: (req: Request, res: Response) =>
     handle(res, AdminService.copyMenu(Number(req.params.menuId), req.body, studioActor(req)), 201),
 
@@ -134,7 +146,7 @@ export const AdminController = {
   deleteMenu: (req: Request, res: Response) =>
     handle(res, AdminService.deleteMenu(Number(req.params.menuId), studioActor(req))),
   deleteItem: (req: Request, res: Response) =>
-    handle(res, AdminService.deleteItem(Number(req.params.itemId), studioActor(req))),
+    handle(res, AdminService.deleteItem(Number(req.params.itemId), studioActor(req), { withChildren: req.query.withChildren === 'true' })),
   deleteQrMapping: (req: Request, res: Response) =>
     handle(res, AdminService.deleteQrMapping(Number(req.params.id), studioActor(req))),
 

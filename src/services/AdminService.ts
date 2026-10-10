@@ -9,6 +9,9 @@ import { QrLinkMapping } from '../models/qrLinkMapping.model';
 import { QrTemplate } from '../models/qrTemplate.model';
 import { PrintCollection } from '../models/printCollection.model';
 import { Vendor } from '../models/vendor.model';
+import { cleanCtaConfig, cleanItemCtaOverride } from '../utils/CtaConfigUtil';
+import { descendantIds, parentsFirst, selectForCopy, validateReorder } from '../utils/MenuTreeUtil';
+import { cleanDraftItems, cleanDraftMenu, planPublish, type DraftItem } from '../utils/MenuDraftUtil';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const QR_LIBRARY_TEMPLATE_IDS = new Set([
@@ -366,6 +369,8 @@ function cleanMenu(menu: Menu) {
     itemStoryHeading: menu.itemStoryHeading || 'The backstory',
     itemMaterialHeading: menu.itemMaterialHeading || 'Material',
     elaborateDescriptions: menu.elaborateDescriptions ?? false,
+    ctaConfig: cleanCtaConfig(menu.getDataValue('ctaConfig')),
+    draftSavedAt: menu.getDataValue('draftSavedAt') ?? null,
     isActive: menu.isActive,
     vendorId: menu.vendorId,
     type: menu.getDataValue('type') ?? 'generic',
@@ -392,6 +397,7 @@ function cleanItem(item: LineItem) {
     allergens: item.allergens ?? [],
     isVeg: item.isVeg,
     spiceLevel: item.spiceLevel,
+    ctaConfig: cleanItemCtaOverride(item.getDataValue('ctaConfig')),
     menuId: item.menuId,
     parentId: item.parentId,
     createdAt: item.createdAt,
@@ -696,6 +702,7 @@ export const AdminService = {
       itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory',
       itemMaterialHeading: body.itemMaterialHeading?.trim().slice(0, 80) || 'Material',
       elaborateDescriptions: Boolean(body.elaborateDescriptions),
+      ctaConfig: cleanCtaConfig(body.ctaConfig),
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
       type: menuType,
       sourceMenuId: body.sourceMenuId ? Number(body.sourceMenuId) : null,
@@ -724,7 +731,7 @@ export const AdminService = {
       vendorId,
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Menu display name') : menu.displayName,
-      description: body.description?.trim() || null,
+      description: body.description !== undefined ? (body.description?.trim() || null) : menu.description,
       itemStoryHeading: body.itemStoryHeading !== undefined
         ? (body.itemStoryHeading?.trim().slice(0, 80) || 'The backstory')
         : menu.itemStoryHeading,
@@ -734,8 +741,9 @@ export const AdminService = {
       elaborateDescriptions: body.elaborateDescriptions !== undefined
         ? Boolean(body.elaborateDescriptions)
         : menu.elaborateDescriptions,
+      ctaConfig: body.ctaConfig !== undefined ? cleanCtaConfig(body.ctaConfig) : menu.ctaConfig,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : menu.isActive,
-    });
+    } as any);
     await rewriteMenuQrDestinations(oldVendorId, vendorId, oldName, name);
     const linkedEvents = await EventMenuMapping.findAll({
       where: { menuId: id },
@@ -830,6 +838,7 @@ export const AdminService = {
       allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : [],
       isVeg: typeof body.isVeg === 'boolean' ? body.isVeg : null,
       spiceLevel: Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : null,
+      ctaConfig: cleanItemCtaOverride(body.ctaConfig),
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
     return cleanItem(item);
@@ -859,11 +868,11 @@ export const AdminService = {
       menuId,
       name,
       displayName: body.displayName !== undefined ? requireText(body.displayName, 'Item display name') : item.displayName,
-      description: body.description?.trim() || null,
-      ingredients: body.ingredients?.trim() || null,
-      image: body.image?.trim() || null,
+      description: body.description !== undefined ? (body.description?.trim() || null) : item.description,
+      ingredients: body.ingredients !== undefined ? (body.ingredients?.trim() || null) : item.ingredients,
+      image: body.image !== undefined ? (body.image?.trim() || null) : item.image,
       type: body.type?.trim() || item.type,
-      enumType: body.enumType?.trim() || null,
+      enumType: body.enumType !== undefined ? (body.enumType?.trim() || null) : item.enumType,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : item.isActive,
       sortOrder: body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : item.sortOrder,
       price: body.price !== undefined ? (body.price?.trim() || null) : item.price,
@@ -871,6 +880,8 @@ export const AdminService = {
       allergens: Array.isArray(body.allergens) ? body.allergens.map(String).map((value: string) => value.trim()).filter(Boolean) : item.allergens,
       isVeg: body.isVeg !== undefined ? (typeof body.isVeg === 'boolean' ? body.isVeg : null) : item.isVeg,
       spiceLevel: body.spiceLevel !== undefined && Number.isFinite(Number(body.spiceLevel)) ? Math.max(0, Math.min(3, Number(body.spiceLevel))) : item.spiceLevel,
+      ctaConfig: body.ctaConfig !== undefined ? cleanItemCtaOverride(body.ctaConfig) : item.ctaConfig,
+      // Existing callers rely on an omitted parentId meaning "move to root"; keep that contract.
       parentId: body.parentId ? Number(body.parentId) : null,
     } as any);
     const newMenu = menuId === oldMenu.id ? oldMenu : await Menu.findByPk(menuId);
@@ -1074,49 +1085,175 @@ export const AdminService = {
     const name = requireSlug(body.name, 'Menu slug');
     const duplicate = await Menu.findOne({ where: { vendorId, name } });
     if (duplicate) throw conflict('This vendor already has a menu with this slug.');
+    const include = body.include ?? {};
+    const copyCtas = include.ctas !== false;
 
-    const newMenu = await Menu.create({
-      vendorId,
-      name,
-      displayName: requireText(body.displayName, 'Menu display name'),
-      description: body.description?.trim() || source.description || null,
-      itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || source.itemStoryHeading || 'The backstory',
-      itemMaterialHeading: body.itemMaterialHeading?.trim().slice(0, 80) || source.itemMaterialHeading || 'Material',
-      isActive: true,
-      type: 'personalized',
-      sourceMenuId: source.id,
-    } as any);
+    return sequelize.transaction(async (transaction) => {
+      const newMenu = await Menu.create({
+        vendorId,
+        name,
+        displayName: requireText(body.displayName, 'Menu display name'),
+        description: body.description?.trim() || source.description || null,
+        itemStoryHeading: body.itemStoryHeading?.trim().slice(0, 80) || source.itemStoryHeading || 'The backstory',
+        itemMaterialHeading: body.itemMaterialHeading?.trim().slice(0, 80) || source.itemMaterialHeading || 'Material',
+        elaborateDescriptions: source.elaborateDescriptions ?? false,
+        ctaConfig: copyCtas ? cleanCtaConfig(source.getDataValue('ctaConfig')) : cleanCtaConfig(null),
+        isActive: true,
+        // Older clients never sent a type and expected "personalized"; the studio sends the type it wants.
+        type: body.type === 'generic' || body.type === 'personalized' ? body.type : 'personalized',
+        sourceMenuId: source.id,
+      } as any, { transaction });
 
-    // Copy items in two passes: parents first, then children (preserving nesting)
-    const sourceItems = source.lineItems ?? [];
-    const idMap = new Map<number, number>();
-    const roots = sourceItems.filter((i) => !i.parentId);
-    const children = sourceItems.filter((i) => i.parentId);
+      // Parents are always created before their children (at any depth) so parent ids can be remapped.
+      const picked = selectForCopy(source.lineItems ?? [], {
+        includeItems: include.items !== false,
+        includeHidden: include.hidden !== false,
+      });
+      const idMap = new Map<number, number>();
+      for (const item of parentsFirst(picked)) {
+        const created = await LineItem.create({
+          menuId: newMenu.id,
+          name: item.name,
+          displayName: item.displayName,
+          description: item.description ?? null,
+          ingredients: item.ingredients ?? null,
+          image: item.image ?? null,
+          type: item.type ?? 'item',
+          enumType: item.enumType ?? null,
+          isActive: item.isActive,
+          sortOrder: item.sortOrder ?? 0,
+          price: item.price ?? null,
+          tags: item.tags ?? [],
+          allergens: item.allergens ?? [],
+          isVeg: item.isVeg ?? null,
+          spiceLevel: item.spiceLevel ?? null,
+          ctaConfig: copyCtas ? cleanItemCtaOverride(item.getDataValue('ctaConfig')) : null,
+          parentId: item.parentId ? (idMap.get(item.parentId) ?? null) : null,
+        } as any, { transaction });
+        idMap.set(item.id, created.id as number);
+      }
 
-    for (const item of [...roots, ...children]) {
-      const created = await LineItem.create({
-        menuId: newMenu.id,
-        name: item.name,
-        displayName: item.displayName,
-        description: item.description ?? null,
-        ingredients: item.ingredients ?? null,
-        image: item.image ?? null,
-        type: item.type ?? 'item',
-        enumType: item.enumType ?? null,
-        isActive: item.isActive,
-        sortOrder: item.sortOrder ?? 0,
-        price: item.price ?? null,
-        tags: item.tags ?? [],
-        allergens: item.allergens ?? [],
-        isVeg: item.isVeg ?? null,
-        spiceLevel: item.spiceLevel ?? null,
-        parentId: item.parentId ? (idMap.get(item.parentId) ?? null) : null,
-      } as any);
-      idMap.set(item.id, created.id as number);
+      const result = await Menu.findByPk(newMenu.id, { include: [Vendor], transaction });
+      return cleanMenu(result!);
+    });
+  },
+
+  /** The menu's unsaved Menu Studio working copy, or null. */
+  getMenuDraft: async (menuId: number, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    return menu.getDataValue('draft') ?? null;
+  },
+
+  /** Stores a working copy privately. Guests keep seeing the live menu. */
+  saveMenuDraft: async (menuId: number, body: any, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    let draft;
+    try {
+      draft = { menu: cleanDraftMenu(body?.menu), items: cleanDraftItems(body?.items), savedAt: new Date().toISOString() };
+    } catch (err: any) {
+      throw badRequest(err.message);
     }
+    await menu.update({ draft, draftSavedAt: new Date(draft.savedAt) } as any);
+    return { savedAt: draft.savedAt };
+  },
 
-    const result = await Menu.findByPk(newMenu.id, { include: [Vendor] });
-    return cleanMenu(result!);
+  discardMenuDraft: async (menuId: number, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    await menu.update({ draft: null, draftSavedAt: null } as any);
+    return { ok: true };
+  },
+
+  /**
+   * Saves a working copy and makes it live in one transaction: menu settings are
+   * updated, removed entries deleted, new entries (negative ids) created and the
+   * rest updated. Clears any stored draft. Returns the live menu, its items and
+   * a map from temporary ids to the new real ids.
+   */
+  publishMenu: async (menuId: number, body: any, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    const existing = await LineItem.findAll({ where: { menuId }, attributes: ['id'] });
+    let settings;
+    let plan;
+    try {
+      settings = cleanDraftMenu(body?.menu);
+      plan = planPublish(existing.map((row) => Number(row.id)), cleanDraftItems(body?.items));
+    } catch (err: any) {
+      throw badRequest(err.message);
+    }
+    const fields = (item: DraftItem) => ({
+      name: item.name,
+      displayName: item.displayName,
+      description: item.description,
+      ingredients: item.ingredients,
+      image: item.image,
+      type: item.type,
+      enumType: item.enumType,
+      isActive: item.isActive,
+      sortOrder: item.sortOrder,
+      price: item.price,
+      tags: item.tags,
+      allergens: item.allergens,
+      isVeg: item.isVeg,
+      spiceLevel: item.spiceLevel,
+      ctaConfig: item.ctaConfig,
+    });
+    const idMap = new Map<number, number>();
+    const realId = (id: number | null) => (id === null ? null : id < 0 ? idMap.get(id) ?? null : id);
+
+    await sequelize.transaction(async (transaction) => {
+      await menu.update({ ...settings, draft: null, draftSavedAt: null } as any, { transaction });
+      // Delete first so a re-added item can reuse a removed item's link name.
+      if (plan.deleteIds.length) await LineItem.destroy({ where: { id: plan.deleteIds, menuId } as any, transaction });
+      for (const item of plan.creates) {
+        const created = await LineItem.create({ ...fields(item), menuId, parentId: realId(item.parentId) } as any, { transaction });
+        idMap.set(item.id, Number(created.id));
+      }
+      for (const item of plan.updates) {
+        await LineItem.update({ ...fields(item), parentId: realId(item.parentId) } as any, { where: { id: item.id, menuId } as any, transaction });
+      }
+    });
+
+    const updated = await Menu.findByPk(menuId, { include: [Vendor] });
+    return {
+      menu: cleanMenu(updated!),
+      items: await AdminService.listItems(menuId, actor),
+      idMap: Object.fromEntries(idMap),
+    };
+  },
+
+  /**
+   * Moves/reorders any number of items in one transaction. Each entry sets an
+   * item's parent (null = top level) and its position among siblings.
+   */
+  reorderMenu: async (menuId: number, body: any, actor?: StudioActor) => {
+    const menu = await Menu.findByPk(menuId);
+    if (!menu) throw notFound('Menu not found');
+    assertActorVendor(actor, menu.vendorId);
+    const nodes = await LineItem.findAll({ where: { menuId }, attributes: ['id', 'parentId', 'type'] });
+    let entries;
+    try {
+      // BIGINT columns come back as strings; the tree helpers compare numbers.
+      entries = validateReorder(body?.items, nodes.map((node) => ({ id: Number(node.id), parentId: node.parentId ? Number(node.parentId) : null, type: node.type })));
+    } catch (err: any) {
+      throw badRequest(err.message);
+    }
+    await sequelize.transaction(async (transaction) => {
+      for (const entry of entries) {
+        await LineItem.update(
+          { parentId: entry.parentId, sortOrder: entry.sortOrder } as any,
+          { where: { id: entry.id, menuId } as any, transaction },
+        );
+      }
+    });
+    return AdminService.listItems(menuId, actor);
   },
 
   getPreviews: async (ctx: UrlContext, actor?: StudioActor) => {
@@ -1441,16 +1578,23 @@ export const AdminService = {
     return { ok: true };
   },
 
-  deleteItem: async (id: number, actor?: StudioActor) => {
+  deleteItem: async (id: number, actor?: StudioActor, options: { withChildren?: boolean } = {}) => {
     const item = await LineItem.findByPk(id);
     if (!item) throw notFound('Item not found');
     const itemMenu = await Menu.findByPk(item.menuId, { attributes: ['vendorId'] });
     if (!itemMenu) throw notFound('Menu not found');
     assertActorVendor(actor, itemMenu.vendorId);
+    if (options.withChildren) {
+      // Removing a section from a menu removes everything inside it.
+      const siblings = await LineItem.findAll({ where: { menuId: item.menuId }, attributes: ['id', 'parentId'] });
+      const ids = [id, ...descendantIds(siblings.map((row) => ({ id: Number(row.id), parentId: row.parentId ? Number(row.parentId) : null })), id)];
+      await LineItem.destroy({ where: { id: ids } as any });
+      return { ok: true, deleted: ids.length };
+    }
     // Orphan any children before deleting (null out their parentId)
     await LineItem.update({ parentId: null } as any, { where: { parentId: id } as any });
     await item.destroy();
-    return { ok: true };
+    return { ok: true, deleted: 1 };
   },
 
   deleteQrMapping: async (id: number, actor?: StudioActor) => {

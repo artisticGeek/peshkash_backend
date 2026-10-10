@@ -34,6 +34,12 @@ router.post('/menus', requireSection('designer'), AdminController.createMenu);
 router.put('/menus/:menuId', requireSection('designer'), AdminController.updateMenu);
 router.delete('/menus/:menuId', requireSection('designer'), AdminController.deleteMenu);
 router.post('/menus/:menuId/copy', requireSection('designer'), AdminController.copyMenu);
+router.patch('/menus/:menuId/order', requireSection('designer'), AdminController.reorderMenu);
+// Menu Studio: private drafts, and "Save" which makes a working copy live.
+router.get('/menus/:menuId/draft', requireSection('designer'), AdminController.getMenuDraft);
+router.put('/menus/:menuId/draft', requireSection('designer'), AdminController.saveMenuDraft);
+router.delete('/menus/:menuId/draft', requireSection('designer'), AdminController.discardMenuDraft);
+router.post('/menus/:menuId/publish', requireSection('designer'), AdminController.publishMenu);
 
 router.get('/vendors/:vendorId/item-pool', requireSection('designer'), AdminController.getItemPool);
 

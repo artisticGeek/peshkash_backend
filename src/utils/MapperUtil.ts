@@ -4,6 +4,7 @@ import { LineItemDTO } from '../models/dto/menuDetailResponse.dto';
 import { EventSummaryDTO } from '../models/dto/event.dto';
 import { VendorSummaryDTO } from '../models/dto/vendor.dto';
 import { Menu } from '../models/menu.model';
+import { resolveCtaConfig } from './CtaConfigUtil';
 
 function mapLineItemsRecursively(items: LineItem[], parentId?: number | null): LineItemDTO[];
 function mapLineItemsRecursively(items: LineItem[], parentId: number | null, itemName?: string): LineItemDTO[];
@@ -94,6 +95,8 @@ function mapSpecificItemResponse(mapping: EventMenuMapping, itemName: string) {
     allergens: targetItem.allergens ?? [],
     isVeg: targetItem.isVeg,
     spiceLevel: targetItem.spiceLevel,
+    // Effective item-page buttons: the item's override, else the menu default.
+    ctas: resolveCtaConfig(mapping.menu?.getDataValue?.('ctaConfig'), targetItem.getDataValue?.('ctaConfig')),
     parentItems: parentItems.map(p => ({
       id: p.id,
       name: p.name,
