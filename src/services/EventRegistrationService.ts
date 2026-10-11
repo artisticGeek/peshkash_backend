@@ -478,6 +478,7 @@ export const EventRegistrationService = {
       },
       vendor: { name: event.vendor.name, displayName: event.vendor.displayName, logoUrl: event.vendor.logoUrl },
       template: settings.pass.template,
+      design: settings.pass.template.kind === 'design' ? await this.passDesign(Number(settings.pass.template.id), event.vendorId) : null,
       guest: { name: row.guest_name || 'Guest', firstName: first || 'Guest', lastName: last, party: row.party_size },
       pass: { code: row.pass_code, checkedInAt: row.checked_in_at },
       fields: {
@@ -489,6 +490,15 @@ export const EventRegistrationService = {
         ...passAnswers(form, row.answers ?? {}),
       },
     };
+  },
+
+  /** A vendor's saved Studio design used as the pass template (only that vendor's own designs). */
+  async passDesign(designId: number, vendorId: number) {
+    const rows = await q<any>(`
+      SELECT id, name, width_mm AS "widthMm", height_mm AS "heightMm", elements, library_template_id AS "libraryTemplateId",
+             manifest_version AS "manifestVersion", qr_style AS "qrStyle", theme, settings, document
+        FROM qr_templates WHERE id = :id AND (vendor_id = :vendorId OR vendor_id IS NULL) LIMIT 1`, { id: designId, vendorId });
+    return rows[0] ?? null;
   },
 
   // ── Vendor side ───────────────────────────────────────────────────────────

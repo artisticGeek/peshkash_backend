@@ -23,6 +23,8 @@ const QR_LIBRARY_TEMPLATE_IDS = new Set([
   'cafe-counter-plate', 'food-stall-sign', 'salon-booking-card', 'studio-booking-plate',
   'repair-service-tag', 'tutor-class-flyer', 'event-checkin-pass', 'wedding-vendor-card',
   'real-estate-property-card', 'exhibition-entry-card',
+  // Peshkash 5.0 event passes
+  'pass-mobile', 'pass-stub', 'pass-festive', 'pass-badge', 'pass-rsvp',
 ]);
 const QR_STYLES = new Set(['obsidian-ring', 'porcelain-cameo']);
 const QR_THEMES = new Set(['light', 'dark']);
