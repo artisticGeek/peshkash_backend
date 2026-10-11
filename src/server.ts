@@ -3,6 +3,7 @@
 // See package.json scripts.
 import app, { runMigrations } from './app';
 import { startDrainLoop } from './workers/analyticsWorker';
+import { startFeedbackWorker } from './workers/feedbackWorker';
 import { QrLinkMappingService } from './services/QrLinkMappingService';
 
 const PORT = process.env.PORT || 4000;
@@ -16,6 +17,7 @@ const prepare = localDemoMode
   : runMigrations().then(async () => {
       await QrLinkMappingService.backfillVendorIds();
       startDrainLoop();
+      startFeedbackWorker();
     });
 
 prepare

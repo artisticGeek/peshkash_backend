@@ -40,7 +40,7 @@ export const EventExperienceController = {
       if (req.user?.phone) {
         const rows = await sequelize.query<{ exists: boolean }>(
           `SELECT EXISTS(
-             SELECT 1 FROM event_registration WHERE event_id = :eventId AND phone = :phone
+             SELECT 1 FROM event_registration WHERE event_id = :eventId AND phone = :phone AND status <> 'cancelled'
            ) AS exists`,
           { replacements: { eventId: event.id, phone: req.user.phone }, type: QueryTypes.SELECT },
         );
