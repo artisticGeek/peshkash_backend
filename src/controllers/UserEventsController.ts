@@ -3,16 +3,15 @@ import { UserEventsService } from '../services/UserEventsService';
 
 /** Peshkash 5.0 — the signed-in person's events for /home (additive; item history is unchanged). */
 export const UserEventsController = {
-  /** GET /api/user/events — registrations, saved and recently visited events. */
+  /** GET /api/user/events — the person's registrations (for pass links) and saved events. */
   overview: async (req: Request, res: Response) => {
     try {
       const phone = req.user!.phone;
-      const [registrations, saved, visited] = await Promise.all([
+      const [registrations, saved] = await Promise.all([
         UserEventsService.registrations(phone),
         UserEventsService.saved(phone),
-        UserEventsService.visited(phone),
       ]);
-      return res.json({ registrations, saved, visited });
+      return res.json({ registrations, saved });
     } catch (error) {
       console.error('[UserEvents] overview error:', error);
       return res.status(500).json({ error: 'Your events are temporarily unavailable.' });

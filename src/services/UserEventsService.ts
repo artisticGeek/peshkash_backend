@@ -4,7 +4,7 @@ import { EventRegistrationService } from './EventRegistrationService';
 
 /**
  * Peshkash 5.0 — a signed-in person's events: registrations (any flow), saved
- * events, recently visited event pages and an event activity trail.
+ * events and an event activity trail (shown inside /home Saved and History).
  *
  * Read-only over existing tables. Identity is the verified phone, plus any
  * device that phone has signed in on (device_link), exactly like item history.
@@ -118,24 +118,6 @@ export const UserEventsService = {
       { phone, eventId },
     );
     return rows[0]?.action_type === 'event_bookmark';
-  },
-
-  async visited(phone: string, limit = 30) {
-    const rows = await q<EventCols & { last_visit: Date; visits: string }>(
-      `SELECT seen.last_visit, seen.visits, ${EVENT_COLS}
-         FROM (
-           SELECT ae.event_id, MAX(ae.created_at) AS last_visit, COUNT(*) AS visits
-             FROM analytics_event ae ${PHONE_MATCH}
-              AND ae.event_id IS NOT NULL AND ae.action_type = 'event_page_view'
-            GROUP BY ae.event_id
-         ) seen
-         JOIN event e ON e.id = seen.event_id
-         LEFT JOIN vendor v ON v.id = e.vendor_id
-        ORDER BY seen.last_visit DESC
-        LIMIT :limit`,
-      { phone, limit },
-    );
-    return rows.map((row) => ({ lastVisit: row.last_visit, visits: Number(row.visits), event: eventCard(row) }));
   },
 
   /**
