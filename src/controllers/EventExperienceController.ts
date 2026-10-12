@@ -40,7 +40,7 @@ export const EventExperienceController = {
       if (req.user?.phone) {
         const rows = await sequelize.query<{ exists: boolean }>(
           `SELECT EXISTS(
-             SELECT 1 FROM event_registration WHERE event_id = :eventId AND phone = :phone
+             SELECT 1 FROM event_registration WHERE event_id = :eventId AND phone = :phone AND status <> 'cancelled'
            ) AS exists`,
           { replacements: { eventId: event.id, phone: req.user.phone }, type: QueryTypes.SELECT },
         );
@@ -79,6 +79,15 @@ export const EventExperienceController = {
       if (config.registrationEnabled === false) return res.status(403).json({ error: 'Registration is not enabled for this event' });
       if (event.endTime && Date.now() > new Date(event.endTime).getTime()) {
         return res.status(409).json({ error: 'This event has ended' });
+      }
+      // Peshkash 5.0: once a host sets up registration for an event, its rules (form, seats,
+      // waitlist, approval, invite-only) apply to everyone, so the legacy one tap stands aside.
+      const configured = await sequelize.query(
+        `SELECT 1 FROM event_registration_settings WHERE event_id = :eventId LIMIT 1`,
+        { replacements: { eventId: event.id }, type: QueryTypes.SELECT },
+      );
+      if (configured.length) {
+        return res.status(409).json({ error: 'Registration for this event has been updated. Please refresh the page to register.', code: 'registration_updated' });
       }
 
       await sequelize.query(

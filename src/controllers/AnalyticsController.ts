@@ -242,6 +242,17 @@ export const AnalyticsController = {
       'item_bookmark', 'item_unbookmark', 'item_like', 'item_unlike',
       'item_dislike', 'item_undislike',
     ]);
+    // Peshkash 5.0: saving an event is durable state too (keyed by eventId, not itemId).
+    if (payload.actionType === 'event_bookmark' || payload.actionType === 'event_unbookmark') {
+      if (!payload.eventId) return res.status(400).json({ error: 'eventId is required to save an event.' });
+      try {
+        await AnalyticsRecorder.recordActionDurable(payload, req);
+      } catch (error) {
+        console.error('[Analytics] durable event action error:', error);
+        return res.status(503).json({ error: 'Could not save this event.' });
+      }
+      return res.status(204).end();
+    }
     if (durableActions.has(payload.actionType)) {
       if (!payload.itemId) return res.status(400).json({ error: 'itemId is required for item state actions.' });
       try {

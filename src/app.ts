@@ -7,6 +7,8 @@ import analyticsRouter from './routes/analyticsRouter';
 import authRouter from './routes/authRouter';
 import userRouter from './routes/userRouter';
 import engagementRouter from './routes/engagementRouter';
+import { registrationRouter, registrationAdminRouter, checkInRouter, checkInListRouter } from './routes/registrationRouter';
+import { runRegistrationMigrations } from './services/RegistrationSchema';
 import { authMiddleware } from './middleware/authMiddleware';
 import { sequelize } from './config/sequelize';
 import { AnalyticsQueue } from './services/AnalyticsQueue';
@@ -28,6 +30,11 @@ app.use(authMiddleware);
 app.use('/api/auth',     authRouter);
 app.use('/api/user',     userRouter);
 app.use('/api/engagement', engagementRouter);
+// Peshkash 5.0 — configurable event registration, passes and door check-in
+app.use('/api/registration', registrationRouter);
+app.use('/api/admin/event-registration/:eventId', registrationAdminRouter);
+app.use('/api/checkin/:eventId', checkInRouter);
+app.use('/api/checkin', checkInListRouter);
 app.use('/api', router);
 app.use('/api/onboard/:vendorName', onboardingRouter);
 app.use('/api/admin', adminRouter);
@@ -141,6 +148,7 @@ export async function runMigrations(): Promise<void> {
     )
   `);
   await sequelize.query(`CREATE INDEX IF NOT EXISTS idx_event_registration_event_id ON event_registration(event_id)`);
+  await runRegistrationMigrations();
 
   // Permanent custom QR for the Peshkash root landing page. Its stable vendor slug keeps
   // analytics attributed to ArtisticGeek Studios without depending on environment-specific IDs.
