@@ -30,15 +30,23 @@ export const RegistrationPublicController = {
   register: (req: Request, res: Response) => handle(res, async () => {
     const result: any = await EventRegistrationService.register(req.params.eventName, req.user!, req.body);
     if (!result.duplicate && result.event) {
+      // Only confirmed seats count as registrations in analytics.
+      const status = result.me?.status;
+      const actionType = status === 'registered' ? 'event_registration' : status === 'waitlisted' ? 'event_waitlist_join' : 'event_registration_request';
       AnalyticsRecorder.recordAction({
-        actionType: 'event_registration', eventId: Number(result.event.id), vendorId: Number(result.event.vendorId),
+        actionType, eventId: Number(result.event.id), vendorId: Number(result.event.vendorId),
         phone: req.user!.phone, pageUrl: req.body?.pageUrl,
       }, req);
     }
     return { duplicate: result.duplicate, me: result.me };
   }),
 
-  cancel: (req: Request, res: Response) => handle(res, () => EventRegistrationService.cancelOwn(req.params.eventName, req.user!)),
+  cancel: (req: Request, res: Response) => handle(res, async () => {
+    const result = await EventRegistrationService.cancelOwn(req.params.eventName, req.user!);
+    const event = await EventRegistrationService.eventByName(req.params.eventName).catch(() => null);
+    if (event) AnalyticsRecorder.recordAction({ actionType: 'event_registration_cancel', eventId: event.id, vendorId: event.vendorId, phone: req.user!.phone }, req);
+    return result;
+  }),
   feedback: (req: Request, res: Response) => handle(res, () => EventRegistrationService.submitFeedback(req.params.eventName, req.user!, req.body)),
 
   upload: (req: Request, res: Response) => handle(res, async () => {
@@ -96,6 +104,8 @@ export const RegistrationAdminController = {
 
 /** Door check-in, mounted at /api/checkin/:eventId. Vendor admins or the event's door staff. */
 export const CheckInController = {
+  /** GET /api/checkin — every event this person can check guests in for right now. */
+  events: (req: Request, res: Response) => handle(res, () => EventRegistrationService.checkInEvents(req.user!)),
   access: (req: Request, res: Response) => handle(res, async () => {
     const { event, role } = await EventRegistrationService.checkInAccess(eventId(req), req.user);
     return {

@@ -1,3 +1,4 @@
+import { QR_LIBRARY_TEMPLATE_ID_SET } from './QrLibraryTemplates';
 /**
  * Per-event registration settings (Peshkash 5.0). Every option defaults to off, so an event
  * whose vendor never opens the Registration section behaves exactly like one-tap registration.
@@ -77,7 +78,8 @@ export function cleanRegistrationSettings(raw: any): RegistrationSettings {
   const templateRaw = r.pass?.template ?? {};
   const template: PassTemplateRef = templateRaw.kind === 'design' && /^\d{1,12}$/.test(String(templateRaw.id ?? ''))
     ? { kind: 'design', id: String(templateRaw.id) }
-    : { kind: 'library', id: LIBRARY_PASS_TEMPLATES.includes(templateRaw.id) ? templateRaw.id : DEFAULT_PASS_TEMPLATE.id };
+    // Any QR Studio library template can be a pass (the five event-pass templates are the suggestions).
+    : { kind: 'library', id: typeof templateRaw.id === 'string' && QR_LIBRARY_TEMPLATE_ID_SET.has(templateRaw.id) ? templateRaw.id : DEFAULT_PASS_TEMPLATE.id };
   const staffPhones = [...new Set((Array.isArray(r.pass?.staffPhones) ? r.pass.staffPhones : [])
     .map(normalisePhone).filter(Boolean) as string[])].slice(0, 20);
   const at = typeof r.feedback?.at === 'string' && !Number.isNaN(Date.parse(r.feedback.at)) ? new Date(r.feedback.at).toISOString() : null;

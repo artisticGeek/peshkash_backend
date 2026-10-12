@@ -34,6 +34,10 @@ registrationAdminRouter.delete('/invites/:inviteId', RegistrationAdminController
 registrationAdminRouter.post('/feedback/send', RegistrationAdminController.sendFeedback);
 registrationAdminRouter.get('/files', RegistrationAdminController.file);
 
+/** /api/checkin — the "Guest check-in" home: events this phone can check guests in for. */
+export const checkInListRouter = Router();
+checkInListRouter.get('/', anyone, CheckInController.events);
+
 /** /api/checkin/:eventId — door check-in for vendor admins and the event's door staff. */
 export const checkInRouter = Router({ mergeParams: true });
 checkInRouter.use(anyone);

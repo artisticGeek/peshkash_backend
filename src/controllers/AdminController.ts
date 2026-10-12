@@ -60,6 +60,7 @@ export const AdminController = {
            FROM event_registration r
            JOIN event e ON e.id = r.event_id
           WHERE r.event_id = :eventId
+            AND r.status = 'registered' -- 5.0: waitlisted, pending and cancelled guests are not registrations
             AND (:isAdmin = true OR e.vendor_id IN (:vendorIds))
             ${dateFilters}
           ORDER BY r.registered_at DESC`,

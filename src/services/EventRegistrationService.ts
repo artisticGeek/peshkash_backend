@@ -701,6 +701,38 @@ export const EventRegistrationService = {
     return { event, role: 'staff' as const };
   },
 
+  /**
+   * Events this person can check guests in for: the host's own events (vendor admins and
+   * Peshkash admins) and events whose door-staff list has this phone, while staff access is open.
+   * Only events with 5.0 registration set up are listed; ended events drop off a day later.
+   */
+  async checkInEvents(user: AuthPayload) {
+    const vendorIds = user.role === 'vendor' ? (user.vendorIds ?? (user.vendorId ? [Number(user.vendorId)] : [])) : [];
+    const rows = await q<any>(`
+      SELECT e.id, e.name, COALESCE(e.display_name, e.name) AS "displayName", e.start_time AS "startTime", e.end_time AS "endTime",
+             e.status, e.vendor_id AS "vendorId", e.experience_config->>'venueName' AS "venueName",
+             COALESCE(v.display_name, v.name) AS "vendorName",
+             CASE WHEN :isAdmin OR e.vendor_id IN (:vendorIds) THEN 'host' ELSE 'staff' END AS role
+        FROM event_registration_settings s
+        JOIN event e ON e.id = s.event_id
+        LEFT JOIN vendor v ON v.id = e.vendor_id
+       WHERE (:isAdmin OR e.vendor_id IN (:vendorIds) OR (s.settings->'pass'->'staffPhones') @> jsonb_build_array(CAST(:phone AS TEXT)))
+         AND (COALESCE(e.end_time, e.start_time + INTERVAL '1 day') IS NULL OR COALESCE(e.end_time, e.start_time + INTERVAL '1 day') > NOW() - INTERVAL '1 day')
+       ORDER BY e.start_time ASC NULLS LAST, e.id DESC
+       LIMIT 100`,
+      { isAdmin: user.role === 'admin', vendorIds: vendorIds.length ? vendorIds : [0], phone: user.phone });
+    const out = [];
+    for (const row of rows) {
+      if (row.role === 'staff' && !staffAccessOpen(row.startTime, row.endTime)) continue;
+      out.push({
+        id: Number(row.id), name: row.name, displayName: row.displayName, startTime: row.startTime, endTime: row.endTime,
+        status: row.status, venueName: row.venueName ?? '', vendorName: row.vendorName ?? '', role: row.role as 'host' | 'staff',
+        summary: await this.checkInSummary(Number(row.id)),
+      });
+    }
+    return { events: out };
+  },
+
   async checkInSummary(eventId: number) {
     const rows = await q<any>(`SELECT COUNT(*) FILTER (WHERE status = 'registered') AS registered,
                                       COUNT(*) FILTER (WHERE status = 'registered' AND checked_in_at IS NOT NULL) AS "checkedIn",
