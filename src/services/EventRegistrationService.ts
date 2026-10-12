@@ -463,7 +463,7 @@ export const EventRegistrationService = {
     const { settings } = await this.settings(event.id);
     if (!settings.pass.enabled) throw notFound;
     const allowed = settings.pass.visibility === 'link' || user?.phone === row.phone || canManageEvent(user, event);
-    const eventInfo = { name: event.name, displayName: event.displayName };
+    const eventInfo = { id: event.id, name: event.name, displayName: event.displayName };
     if (!allowed) return { private: true, event: eventInfo };
     const form = await this.form(event.id, 'registration');
     const { first, last } = firstLast(row.guest_name ?? '');
