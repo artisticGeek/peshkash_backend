@@ -217,6 +217,12 @@ function cleanSocialPreview(value: unknown) {
 
 function cleanEventExperience(value: unknown) {
   const input = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const eventPageModes = new Set(['classic', 'editorial', 'lookbook', 'programme', 'spotlight']);
+  const galleryLayouts = new Set(['carousel', 'grid', 'spread']);
+  const gallery = Array.isArray(input.gallery) ? input.gallery.slice(0, 24).map((item: any) => ({
+    url: cleanExternalUrl(item?.url),
+    caption: String(item?.caption || '').trim().slice(0, 160),
+  })).filter((item: any) => item.url) : [];
   const guests = Array.isArray(input.guests) ? input.guests.slice(0, 40).map((guest: any, index: number) => ({
     id: String(guest?.id || `guest-${index + 1}`).slice(0, 80),
     name: String(guest?.name || '').trim().slice(0, 120),
@@ -234,6 +240,7 @@ function cleanEventExperience(value: unknown) {
   })).filter((guest: any) => guest.name) : [];
   return {
     enabled: Boolean(input.enabled),
+    pageMode: eventPageModes.has(String(input.pageMode)) ? String(input.pageMode) : 'classic',
     eyebrow: String(input.eyebrow || '').trim().slice(0, 100),
     heroImageUrl: cleanExternalUrl(input.heroImageUrl),
     venueName: String(input.venueName || '').trim().slice(0, 160),
@@ -247,6 +254,10 @@ function cleanEventExperience(value: unknown) {
     contactVisible: Boolean(input.contactVisible),
     livestreamUrl: cleanExternalUrl(input.livestreamUrl),
     livestreamLabel: String(input.livestreamLabel || 'Watch live').trim().slice(0, 80),
+    galleryTitle: String(input.galleryTitle || '').trim().slice(0, 120),
+    galleryDescription: String(input.galleryDescription || '').trim().slice(0, 500),
+    galleryLayout: galleryLayouts.has(String(input.galleryLayout)) ? String(input.galleryLayout) : 'grid',
+    gallery,
     socialPreview: cleanSocialPreview(input.socialPreview),
     guests,
   };
