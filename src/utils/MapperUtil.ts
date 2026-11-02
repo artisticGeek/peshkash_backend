@@ -15,7 +15,10 @@ function mapLineItemsRecursively(
   itemName?: string
 ): LineItemDTO[] {
   return items
-    .filter(item => item.parentId === parentId)
+    // Hidden entries are an editorial concern and must never reach the public
+    // menu tree. Filtering a hidden parent here also keeps its whole subtree
+    // out of the response, even if a child was left individually active.
+    .filter(item => item.parentId === parentId && item.isActive !== false)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
     .map(item => {
       if (!item.type) {
