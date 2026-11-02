@@ -82,7 +82,8 @@ test('draft items are validated and cleaned', () => {
   assert.deepEqual(items[1].tags, ['rich']);
   assert.equal(items[1].ctaConfig, null);
   assert.throws(() => cleanDraftItems([draftRow(1, 'a'), draftRow(2, 'a')]), /share the link name/);
-  assert.throws(() => cleanDraftItems([draftRow(1, 'Bad Slug')]), /invalid link name/);
+  assert.equal(cleanDraftItems([draftRow(1, 'Pesto Bagel')])[0].name, 'Pesto Bagel');
+  assert.throws(() => cleanDraftItems([draftRow(1, '', null, { displayName: 'Untitled' })]), /needs a link name/);
   assert.throws(() => cleanDraftItems([draftRow(1, 'a', 9)]), /isn't in the menu/);
   assert.throws(() => cleanDraftItems([draftRow(1, 'a', 2), draftRow(2, 'b', 1)]), /inside itself/);
   assert.throws(() => cleanDraftItems([{ ...draftRow(1, 'a'), displayName: '  ' }]), /needs a name/);
