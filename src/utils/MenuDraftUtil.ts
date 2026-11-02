@@ -7,7 +7,6 @@
  */
 import { cleanCtaConfig, cleanItemCtaOverride, type CtaConfig } from './CtaConfigUtil';
 
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_ITEMS = 2000;
 
 export type DraftItem = {
@@ -72,8 +71,8 @@ export function cleanDraftMenu(raw: unknown): DraftMenuSettings {
 }
 
 /**
- * Validates a working copy's items: unique non-zero ids, a name and URL-safe
- * unique slug on every item, parents that exist in the copy, and no cycles.
+ * Validates a working copy's items: unique non-zero ids, a display and link
+ * name on every item, parents that exist in the copy, and no cycles.
  */
 export function cleanDraftItems(raw: unknown): DraftItem[] {
   if (!Array.isArray(raw)) throw new Error('Items must be a list');
@@ -84,8 +83,8 @@ export function cleanDraftItems(raw: unknown): DraftItem[] {
     if (!Number.isInteger(id) || id === 0) throw new Error('Every entry needs an id');
     const displayName = text(input.displayName, 200);
     if (!displayName) throw new Error('Every item and section needs a name');
-    const name = typeof input.name === 'string' ? input.name.trim() : '';
-    if (!SLUG_PATTERN.test(name)) throw new Error(`"${displayName}" has an invalid link name`);
+    const name = text(input.name, 200);
+    if (!name) throw new Error(`"${displayName}" needs a link name`);
     const spice = Number(input.spiceLevel);
     return {
       id,
