@@ -72,6 +72,7 @@ test('validateReorder accepts moves and rejects cycles and foreign ids', () => {
 });
 
 const { cleanDraftItems, cleanDraftMenu, planPublish } = require('../dist/utils/MenuDraftUtil');
+const { MapperUtil } = require('../dist/utils/MapperUtil');
 
 const draftRow = (id, name, parentId = null, extra = {}) => ({ id, parentId, sortOrder: 0, name, displayName: name.replace(/-/g, ' '), type: 'item', isActive: true, ...extra });
 
@@ -108,4 +109,18 @@ test('planPublish deletes, creates parents first, and updates the rest', () => {
   assert.deepEqual(plan.creates.map((item) => item.id), [-1, -2]);
   assert.deepEqual(plan.updates.map((item) => item.id), [5]);
   assert.throws(() => planPublish([1], cleanDraftItems([draftRow(8, 'gone')])), /removed from this menu somewhere else/);
+});
+
+test('public menu tree keeps spice levels and omits hidden entries and subtrees', () => {
+  const rows = [
+    { id: 1, parentId: null, name: 'visible', displayName: 'Visible', type: 'category', isActive: true, sortOrder: 0 },
+    { id: 2, parentId: 1, name: 'spicy', displayName: 'Spicy', type: 'item', isActive: true, spiceLevel: 3, sortOrder: 0 },
+    { id: 3, parentId: 1, name: 'hidden-item', displayName: 'Hidden item', type: 'item', isActive: false, sortOrder: 1 },
+    { id: 4, parentId: null, name: 'hidden-section', displayName: 'Hidden section', type: 'category', isActive: false, sortOrder: 1 },
+    { id: 5, parentId: 4, name: 'active-child', displayName: 'Active child', type: 'item', isActive: true, sortOrder: 0 },
+  ];
+  const tree = MapperUtil.mapLineItemsRecursively(rows);
+  assert.deepEqual(tree.map((item) => item.name), ['visible']);
+  assert.deepEqual(tree[0].subCategoryLineItems.map((item) => item.name), ['spicy']);
+  assert.equal(tree[0].subCategoryLineItems[0].spiceLevel, 3);
 });
