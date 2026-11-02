@@ -18,6 +18,12 @@ const app = express();
 app.disable('x-powered-by');
 app.use((_req, res, next) => { res.setHeader('X-App', 'Peshkash'); next(); });
 app.use(cors());
+// Menu Studio saves the complete working copy in one request. Image-backed
+// menus can exceed Express's 100 KB JSON default, so give only the two write
+// endpoints that carry that document the same bounded allowance as other
+// large, authenticated editor payloads.
+app.use('/api/admin/menus/:menuId/draft', express.json({ limit: '25mb' }));
+app.use('/api/admin/menus/:menuId/publish', express.json({ limit: '25mb' }));
 // A print collection share carries the rendered SVG snapshots that the
 // recipient is allowed to download. Keep the normal JSON ceiling everywhere
 // else, but allow this one authenticated route to accept a complete print job.
